@@ -1,0 +1,28 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\Modules\Catalog\BFA.Modules.Catalog.Domain\BFA.Modules.Catalog.Domain.csproj" />
+    <ProjectReference Include="..\BuildingBlocks\BFA.BuildingBlocks.Domain\BFA.BuildingBlocks.Domain.csproj" />
+    <ProjectReference Include="..\Modules\Inventory\BFA.Modules.Inventory.Domain\BFA.Modules.Inventory.Domain.csproj" />
+    <ProjectReference Include="..\Modules\Shopping\BFA.Modules.Shopping.Domain\BFA.Modules.Shopping.Domain.csproj" />
+    <ProjectReference Include="..\Modules\Ordering\BFA.Modules.Ordering.Domain\BFA.Modules.Ordering.Domain.csproj" />
+    <ProjectReference Include="..\Modules\Fulfillment\BFA.Modules.Fulfillment.Domain\BFA.Modules.Fulfillment.Domain.csproj" />
+    <ProjectReference Include="..\Modules\Payments\BFA.Modules.Payments.Domain\BFA.Modules.Payments.Domain.csproj" />
+    <ProjectReference Include="..\Modules\Shipping\BFA.Modules.Shipping.Domain\BFA.Modules.Shipping.Domain.csproj" />
+    <ProjectReference Include="..\Modules\Identity\BFA.Modules.Identity.Domain\BFA.Modules.Identity.Domain.csproj" />
+    <ProjectReference Include="..\Modules\Returns\BFA.Modules.Returns.Domain\BFA.Modules.Returns.Domain.csproj" />
+    <ProjectReference Include="..\Modules\Compliance\BFA.Modules.Compliance.Domain\BFA.Modules.Compliance.Domain.csproj" />
+    <ProjectReference Include="..\BuildingBlocks\BFA.BuildingBlocks.Application\BFA.BuildingBlocks.Application.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="MediatR" Version="12.4.1" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+</Project>

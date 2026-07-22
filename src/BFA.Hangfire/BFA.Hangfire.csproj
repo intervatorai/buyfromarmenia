@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Hangfire.AspNetCore" Version="1.8.17" />
+    <PackageReference Include="Hangfire.PostgreSql" Version="1.20.10" />
+    <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="9.0.11" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\BFA.Hangfire.Application\BFA.Hangfire.Application.csproj" />
+    <ProjectReference Include="..\BFA.Infrastructure\BFA.Infrastructure.csproj" />
+    <ProjectReference Include="..\BFA.Persistence\BFA.Persistence.csproj" />
+  </ItemGroup>
+
+</Project>

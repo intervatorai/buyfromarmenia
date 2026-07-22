@@ -1,0 +1,243 @@
+"use client";
+
+import Link from "next/link";
+import { useParams } from "next/navigation";
+import { useEffect, useState } from "react";
+import { PublicSiteLayout } from "@/components/layout/PublicSiteLayout";
+import { useLanguage } from "@/components/providers/LanguageProvider";
+import { ApiError, apiFetch, type PublicOrderDetail } from "@/lib/api";
+
+function formatPrice(price: number, currency: string) {
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: currency || "USD",
+  }).format(price);
+}
+
+const TRACKING_STAGES = [
+  "Order placed",
+  "Confirmed",
+  "Processing",
+  "Shipped",
+  "In transit",
+  "Out for delivery",
+  "Delivered",
+];
+
+function getTrackingStage(
+  order: PublicOrderDetail,
+  shipmentStatus?: string,
+) {
+  const shipmentStages: Record<string, number> = {
+    Created: 3,
+    PickedUp: 3,
+    InTransit: 4,
+    OutForDelivery: 5,
+    Delivered: 6,
+  };
+  if (shipmentStatus && shipmentStages[shipmentStatus] !== undefined) {
+    return shipmentStages[shipmentStatus];
+  }
+  if (order.status === "Completed" || order.fulfillmentStatus === "Completed") return 6;
+  if (order.fulfillmentStatus === "InProgress") return 2;
+  if (order.status === "Confirmed") return 1;
+  return 0;
+}
+
+export default function OrderDetailPage() {
+  const params = useParams<{ id: string }>();
+  const { translate } = useLanguage();
+  const [order, setOrder] = useState<PublicOrderDetail | null>(null);
+  const [shipment, setShipment] = useState<{
+    referenceNumber: string;
+    carrier: string;
+    trackingNumber: string;
+    status: string;
+  } | null>(null);
+  const [error, setError] = useState("");
+  const [isLoading, setIsLoading] = useState(true);
+  const [returnReason, setReturnReason] = useState("");
+  const [returnMessage, setReturnMessage] = useState("");
+  const [isSubmittingReturn, setIsSubmittingReturn] = useState(false);
+
+  useEffect(() => {
+    async function loadOrder() {
+      if (!params.id) return;
+
+      try {
+        setOrder(await apiFetch<PublicOrderDetail>(`/api/orders/${params.id}`));
+        try {
+          setShipment(
+            await apiFetch(`/api/orders/${params.id}/shipment`),
+          );
+        } catch {
+          setShipment(null);
+        }
+      } catch (err) {
+        setError(err instanceof ApiError ? err.message : "Failed to load order.");
+      } finally {
+        setIsLoading(false);
+      }
+    }
+
+    void loadOrder();
+  }, [params.id]);
+
+  async function handleReturnRequest(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!order) {
+      return;
+    }
+
+    setIsSubmittingReturn(true);
+    setReturnMessage("");
+
+    try {
+      await apiFetch("/api/returns", {
+        method: "POST",
+        body: JSON.stringify({
+          customerOrderId: order.id,
+          customerEmail: order.customerEmail,
+          reason: returnReason,
+        }),
+      });
+      setReturnMessage(translate("returnRequestSubmitted"));
+      setReturnReason("");
+    } catch (err) {
+      setReturnMessage(
+        err instanceof ApiError ? err.message : translate("returnRequestFailed"),
+      );
+    } finally {
+      setIsSubmittingReturn(false);
+    }
+  }
+
+  return (
+    <PublicSiteLayout>
+      <section className="section container catalog-page">
+        <Link href="/orders" className="catalog-back-link">
+          ← {translate("backToOrders")}
+        </Link>
+
+        {isLoading ? <p className="catalog-message">{translate("loadingOrders")}</p> : null}
+        {error ? <p className="catalog-message catalog-error">{error}</p> : null}
+
+        {order ? (
+          <div className="order-detail">
+            <div>
+              <p className="eyebrow">{translate("orderNumber")}</p>
+              <h1>{order.orderNumber}</h1>
+              <p className="order-detail-meta">
+                {translate("placedOn")}{" "}
+                {new Date(order.createdAtUtc).toLocaleString("en-GB")}
+              </p>
+              <div className="order-status-row">
+                <span className="order-status">{order.status}</span>
+                <span className="order-status">{order.paymentStatus}</span>
+                <span className="order-status">{order.fulfillmentStatus}</span>
+              </div>
+              <div className="tracking-timeline" aria-label="Order tracking">
+                {TRACKING_STAGES.map((stage, index) => {
+                  const currentStage = getTrackingStage(order, shipment?.status);
+                  return (
+                    <div
+                      key={stage}
+                      className={`tracking-step${index <= currentStage ? " complete" : ""}${
+                        index === currentStage ? " current" : ""
+                      }`}
+                    >
+                      <span className="tracking-dot" aria-hidden="true" />
+                      <span>{stage}</span>
+                    </div>
+                  );
+                })}
+              </div>
+              {order.paymentReference ? (
+                <p className="order-detail-meta">
+                  Payment ref: {order.paymentReference}
+                </p>
+              ) : null}
+            </div>
+
+            <div className="order-detail-grid">
+              <div className="product-detail-block">
+                <h2>{translate("deliveryDetails")}</h2>
+                <p>
+                  {order.customerFullName}
+                  <br />
+                  {order.customerEmail}
+                  <br />
+                  {order.shippingAddress.line1}
+                  {order.shippingAddress.line2
+                    ? `, ${order.shippingAddress.line2}`
+                    : ""}
+                  <br />
+                  {order.shippingAddress.city}, {order.shippingAddress.region}{" "}
+                  {order.shippingAddress.postalCode}
+                  <br />
+                  {order.shippingAddress.countryCode}
+                </p>
+              </div>
+
+              <div className="product-detail-block">
+                <h2>{translate("orderSummary")}</h2>
+                {order.items.map((item) => (
+                  <div key={item.id} className="checkout-summary-item">
+                    <span>
+                      {item.productName} ({item.supplierSku}) × {item.quantity}
+                    </span>
+                    <strong>{formatPrice(item.lineTotal, item.currency)}</strong>
+                  </div>
+                ))}
+                <div className="checkout-summary-total">
+                  <span>{translate("subtotal")}</span>
+                  <strong>{formatPrice(order.subtotal, order.currency)}</strong>
+                </div>
+              </div>
+
+              {shipment ? (
+                <div className="product-detail-block" style={{ marginTop: 24 }}>
+                  <h2>{translate("shipmentTracking")}</h2>
+                  <p>
+                    {shipment.carrier} — {shipment.trackingNumber}
+                    <br />
+                    Status: {shipment.status}
+                  </p>
+                </div>
+              ) : null}
+
+              <div className="product-detail-block" style={{ marginTop: 24 }}>
+                <h2>{translate("requestReturn")}</h2>
+                <form className="checkout-form" onSubmit={(event) => void handleReturnRequest(event)}>
+                  <label>
+                    {translate("returnReason")}
+                    <textarea
+                      required
+                      rows={4}
+                      value={returnReason}
+                      onChange={(event) => setReturnReason(event.target.value)}
+                    />
+                  </label>
+                  <button
+                    type="submit"
+                    className="button button-secondary"
+                    disabled={isSubmittingReturn}
+                  >
+                    {isSubmittingReturn
+                      ? translate("submittingReturn")
+                      : translate("submitReturn")}
+                  </button>
+                </form>
+                {returnMessage ? (
+                  <p className="catalog-message" style={{ marginTop: 12 }}>
+                    {returnMessage}
+                  </p>
+                ) : null}
+              </div>
+            </div>
+          </div>
+        ) : null}
+      </section>
+    </PublicSiteLayout>
+  );
+}

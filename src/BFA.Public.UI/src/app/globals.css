@@ -1,0 +1,76 @@
+@import "tailwindcss";
+
+:root {
+  --navy: #10223f;
+  --navy-soft: #1a365d;
+  --terracotta: #c85a34;
+  --terracotta-dark: #a94425;
+  --orange: #e39a38;
+  --red: #d82935;
+  --blue: #244c91;
+  --white: #ffffff;
+  --cream: #fbf7f1;
+  --cream-2: #f3ece3;
+  --border: #e8e0d7;
+  --text: #182234;
+  --text-soft: #6e7380;
+  --shadow: 0 24px 70px rgba(26, 34, 48, 0.12);
+  --shadow-soft: 0 10px 30px rgba(26, 34, 48, 0.07);
+  --radius-xl: 30px;
+  --radius-lg: 22px;
+  --radius-md: 16px;
+  --radius-sm: 12px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  color: var(--text);
+  background:
+    radial-gradient(circle at 8% 0%, rgba(227, 154, 56, 0.08), transparent 26%),
+    linear-gradient(180deg, #ffffff 0%, var(--cream) 100%);
+  font-family: var(--font-dm-sans), var(--font-noto-armenian), sans-serif;
+}
+
+body.menu-open {
+  overflow: hidden;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+button,
+input {
+  font: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+img {
+  display: block;
+  width: 100%;
+}
+
+html[data-lang="hy"] body {
+  font-family: var(--font-noto-armenian), var(--font-dm-sans), sans-serif;
+}
+
+html[data-lang="hy"] .hero h1,
+html[data-lang="hy"] .section-heading h2,
+html[data-lang="hy"] .how h2,
+html[data-lang="hy"] .seller h2 {
+  font-family: var(--font-noto-armenian), sans-serif;
+  font-weight: 700;
+  line-height: 1.18;
+}

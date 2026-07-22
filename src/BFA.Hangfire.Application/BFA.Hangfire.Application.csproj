@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\BFA.Infrastructure\BFA.Infrastructure.csproj" />
+    <ProjectReference Include="..\BFA.Persistence\BFA.Persistence.csproj" />
+    <ProjectReference Include="..\Modules\Catalog\BFA.Modules.Catalog.Domain\BFA.Modules.Catalog.Domain.csproj" />
+    <ProjectReference Include="..\Modules\Identity\BFA.Modules.Identity.Domain\BFA.Modules.Identity.Domain.csproj" />
+    <ProjectReference Include="..\Modules\Compliance\BFA.Modules.Compliance.Domain\BFA.Modules.Compliance.Domain.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Hangfire.Core" Version="1.8.17" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="9.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="9.0.0" />
+  </ItemGroup>
+
+</Project>

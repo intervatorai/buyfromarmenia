@@ -1,0 +1,63 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: bfa
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      BFA_TEST_CONNECTION: Host=localhost;Port=5432;Database=bfa;Username=postgres;Password=postgres
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "9.0.x"
+
+      - name: Restore
+        run: dotnet restore BFA.sln
+
+      - name: Build
+        run: dotnet build BFA.sln --no-restore --configuration Release
+
+      - name: Test
+        run: dotnet test tests/BFA.IntegrationTests/BFA.IntegrationTests.csproj --configuration Release --verbosity normal
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Build Public UI
+        working-directory: src/BFA.Public.UI
+        run: npm ci && npm run build
+
+      - name: Build Admin UI
+        working-directory: src/BFA.Admin.UI
+        run: npm ci && npm run build
+
+      - name: Build Supplier UI
+        working-directory: src/BFA.Supplier.UI
+        run: npm ci && npm run build
