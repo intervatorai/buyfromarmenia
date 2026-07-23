@@ -18,10 +18,8 @@ FROM mcr.microsoft.com/dotnet/aspnet:9.0 AS final
 WORKDIR /app
 ENV ASPNETCORE_ENVIRONMENT=Production \
     DOTNET_EnableDiagnostics=0 \
-    APP_DLL=BFA.Hangfire.dll
+    ASPNETCORE_URLS=http://0.0.0.0:8080
 EXPOSE 8080
-COPY docker/dotnet-entrypoint.sh /app/entrypoint.sh
 COPY --from=publish /app/publish .
-RUN chmod +x /app/entrypoint.sh
-USER $APP_UID
-ENTRYPOINT ["/app/entrypoint.sh"]
+CMD ["dotnet", "BFA.Hangfire.dll"]
+
