@@ -93,25 +93,6 @@ namespace BFA.Persistence.Migrations
                     table.PrimaryKey("PK_shipping_rate_brackets", x => x.Id);
                 });
 
-            migrationBuilder.InsertData(
-                schema: "shipping",
-                table: "shipping_pricing_settings",
-                columns: new[] { "Id", "ErrorMarginPercent", "UpdatedAtUtc" },
-                values: new object[] { new Guid("b2c3d4e5-f6a7-8901-bcde-f12345678901"), 10m, new DateTime(2026, 7, 22, 0, 0, 0, 0, DateTimeKind.Utc) });
-
-            migrationBuilder.InsertData(
-                schema: "shipping",
-                table: "shipping_rate_brackets",
-                columns: new[] { "Id", "CountryIsoCode", "WeightFromKg", "WeightToKg", "Price", "Currency", "IsActive", "CreatedAtUtc", "UpdatedAtUtc" },
-                values: new object[,]
-                {
-                    { new Guid("c1000001-0000-4000-8000-000000000001"), "AM", 0m, 1m, 5m, "USD", true, new DateTime(2026, 7, 22, 0, 0, 0, 0, DateTimeKind.Utc), new DateTime(2026, 7, 22, 0, 0, 0, 0, DateTimeKind.Utc) },
-                    { new Guid("c1000001-0000-4000-8000-000000000002"), "AM", 1.001m, 5m, 12m, "USD", true, new DateTime(2026, 7, 22, 0, 0, 0, 0, DateTimeKind.Utc), new DateTime(2026, 7, 22, 0, 0, 0, 0, DateTimeKind.Utc) },
-                    { new Guid("c1000001-0000-4000-8000-000000000003"), "US", 0m, 1m, 18m, "USD", true, new DateTime(2026, 7, 22, 0, 0, 0, 0, DateTimeKind.Utc), new DateTime(2026, 7, 22, 0, 0, 0, 0, DateTimeKind.Utc) },
-                    { new Guid("c1000001-0000-4000-8000-000000000004"), "US", 1.001m, 5m, 35m, "USD", true, new DateTime(2026, 7, 22, 0, 0, 0, 0, DateTimeKind.Utc), new DateTime(2026, 7, 22, 0, 0, 0, 0, DateTimeKind.Utc) },
-                    { new Guid("c1000001-0000-4000-8000-000000000005"), "US", 5.001m, 20m, 65m, "USD", true, new DateTime(2026, 7, 22, 0, 0, 0, 0, DateTimeKind.Utc), new DateTime(2026, 7, 22, 0, 0, 0, 0, DateTimeKind.Utc) }
-                });
-
             migrationBuilder.CreateIndex(
                 name: "IX_shipping_rate_brackets_CountryIsoCode",
                 schema: "shipping",
@@ -123,6 +104,24 @@ namespace BFA.Persistence.Migrations
                 schema: "shipping",
                 table: "shipping_rate_brackets",
                 columns: new[] { "CountryIsoCode", "IsActive" });
+
+            // Use raw SQL instead of InsertData: this migration's Designer is a stub
+            // (no target model), and Npgsql cannot generate InsertData without column types.
+            migrationBuilder.Sql("""
+                INSERT INTO shipping.shipping_pricing_settings ("Id", "ErrorMarginPercent", "UpdatedAtUtc")
+                VALUES ('b2c3d4e5-f6a7-8901-bcde-f12345678901', 10, TIMESTAMPTZ '2026-07-22 00:00:00+00')
+                ON CONFLICT ("Id") DO NOTHING;
+
+                INSERT INTO shipping.shipping_rate_brackets
+                    ("Id", "CountryIsoCode", "WeightFromKg", "WeightToKg", "Price", "Currency", "IsActive", "CreatedAtUtc", "UpdatedAtUtc")
+                VALUES
+                    ('c1000001-0000-4000-8000-000000000001', 'AM', 0, 1, 5, 'USD', TRUE, TIMESTAMPTZ '2026-07-22 00:00:00+00', TIMESTAMPTZ '2026-07-22 00:00:00+00'),
+                    ('c1000001-0000-4000-8000-000000000002', 'AM', 1.001, 5, 12, 'USD', TRUE, TIMESTAMPTZ '2026-07-22 00:00:00+00', TIMESTAMPTZ '2026-07-22 00:00:00+00'),
+                    ('c1000001-0000-4000-8000-000000000003', 'US', 0, 1, 18, 'USD', TRUE, TIMESTAMPTZ '2026-07-22 00:00:00+00', TIMESTAMPTZ '2026-07-22 00:00:00+00'),
+                    ('c1000001-0000-4000-8000-000000000004', 'US', 1.001, 5, 35, 'USD', TRUE, TIMESTAMPTZ '2026-07-22 00:00:00+00', TIMESTAMPTZ '2026-07-22 00:00:00+00'),
+                    ('c1000001-0000-4000-8000-000000000005', 'US', 5.001, 20, 65, 'USD', TRUE, TIMESTAMPTZ '2026-07-22 00:00:00+00', TIMESTAMPTZ '2026-07-22 00:00:00+00')
+                ON CONFLICT ("Id") DO NOTHING;
+                """);
         }
 
         /// <inheritdoc />
