@@ -22,5 +22,5 @@ ENV ASPNETCORE_ENVIRONMENT=Production \
 EXPOSE 8080
 COPY docker/dotnet-entrypoint.sh /app/entrypoint.sh
 COPY --from=publish /app/publish .
-RUN chmod +x /app/entrypoint.sh
+RUN sed -i "s/\r$//" /app/entrypoint.sh && chmod +x /app/entrypoint.sh
 ENTRYPOINT ["/app/entrypoint.sh"]
