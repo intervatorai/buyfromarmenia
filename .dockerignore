@@ -1,0 +1,43 @@
+# Git / IDE
+.git
+.github
+.cursor
+.idea
+.vscode
+**/.DS_Store
+**/Thumbs.db
+
+# Docs / local tooling
+docs
+agent-transcripts
+**/*.md
+!README.md
+
+# .NET build artifacts
+**/bin/
+**/obj/
+**/out/
+**/.vs/
+TestResults/
+coverage/
+artifacts/
+
+# Node
+**/node_modules/
+**/.next/
+**/out/
+**/dist/
+**/.npm
+**/*.tsbuildinfo
+
+# Env / secrets (injected at runtime on Railway)
+**/.env
+**/.env.*
+!**/.env.example
+
+# Tests (not needed in runtime images)
+tests/
+
+# Local infra
+docker-compose*.yml
+scripts/

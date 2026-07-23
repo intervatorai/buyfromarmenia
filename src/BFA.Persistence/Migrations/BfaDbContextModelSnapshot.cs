@@ -855,6 +855,11 @@ namespace BFA.Persistence.Migrations
                         .HasMaxLength(24)
                         .HasColumnType("character varying(24)");
 
+                    b.Property<string>("TrackingStage")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
                     b.Property<string>("OrderNumber")
                         .IsRequired()
                         .HasMaxLength(32)

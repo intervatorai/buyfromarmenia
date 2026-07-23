@@ -79,6 +79,25 @@ public sealed class OrdersController : ControllerBase
             return BadRequest(new { error = ex.Message });
         }
     }
+    [HttpPut("{id:guid}/tracking-stage")]
+    [Authorize(Policy = "ModeratorOrAbove")]
+    public async Task<IActionResult> SetTrackingStage(
+        Guid id,
+        [FromBody] SetTrackingStageRequest request,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var result = await _mediator.Send(
+                new SetAdminTrackingStageCommand(id, request.TrackingStage),
+                cancellationToken);
+            return result is null ? NotFound() : Ok(result);
+        }
+        catch (DomainException ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
+    }
 }
 
 public record AdjustOrderShippingRequest(
@@ -89,3 +108,6 @@ public record AdjustOrderShippingRequest(
 public record SetOrderStatusRequest(
     BFA.Modules.Ordering.Domain.Enums.OrderStatus? OrderStatus,
     BFA.Modules.Ordering.Domain.Enums.PaymentStatus? PaymentStatus);
+
+public record SetTrackingStageRequest(
+    BFA.Modules.Ordering.Domain.Enums.CustomerTrackingStage TrackingStage);

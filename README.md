@@ -26,7 +26,10 @@ buyfromarmenia/
 │   └── BFA.Infrastructure       # Auth, outbox processor, fulfillment
 ├── tests/BFA.IntegrationTests
 ├── docker-compose.yml           # PostgreSQL for local dev
+├── docker-compose.apps.yml      # Optional: build/run all app containers
+├── docker/                      # Dockerfiles for Railway
 ├── docs/DEVELOPMENT_PLAN.md
+├── docs/RAILWAY.md              # Railway + Docker deploy guide
 └── README.md
 ```
 
@@ -135,3 +138,8 @@ Customer: register via Public `/account/register`.
 ## Docs
 
 - Development plan: [`docs/DEVELOPMENT_PLAN.md`](./docs/DEVELOPMENT_PLAN.md)
+- Railway (Docker) deploy: [`docs/RAILWAY.md`](./docs/RAILWAY.md)
+
+## Production (Railway)
+
+Deploy each API/UI/Hangfire service from this repo using the Dockerfiles under [`docker/`](./docker/). See [`docs/RAILWAY.md`](./docs/RAILWAY.md) for service list, env vars, and build args.

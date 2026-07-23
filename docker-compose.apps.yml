@@ -1,0 +1,106 @@
+# Optional full-stack containers for local smoke-tests (Railway-like).
+# Infra only: docker compose up -d
+# Apps:      docker compose -f docker-compose.yml -f docker-compose.apps.yml up --build
+
+services:
+  public-api:
+    build:
+      context: .
+      dockerfile: docker/public-api.Dockerfile
+    ports:
+      - "5100:8080"
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      PORT: "8080"
+      ConnectionStrings__DefaultConnection: Host=postgres;Port=5432;Database=${POSTGRES_DB:-bfa};Username=${POSTGRES_USER:-postgres};Password=${POSTGRES_PASSWORD:-postgres}
+      Jwt__Secret: local-public-jwt-secret-change-me-32chars
+      Cors__AllowedOrigins__0: http://localhost:3200
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  admin-api:
+    build:
+      context: .
+      dockerfile: docker/admin-api.Dockerfile
+    ports:
+      - "5101:8080"
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      PORT: "8080"
+      ConnectionStrings__DefaultConnection: Host=postgres;Port=5432;Database=${POSTGRES_DB:-bfa};Username=${POSTGRES_USER:-postgres};Password=${POSTGRES_PASSWORD:-postgres}
+      Jwt__Secret: local-admin-jwt-secret-change-me-32chars
+      Cors__AllowedOrigins__0: http://localhost:3201
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  supplier-api:
+    build:
+      context: .
+      dockerfile: docker/supplier-api.Dockerfile
+    ports:
+      - "5102:8080"
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      PORT: "8080"
+      ConnectionStrings__DefaultConnection: Host=postgres;Port=5432;Database=${POSTGRES_DB:-bfa};Username=${POSTGRES_USER:-postgres};Password=${POSTGRES_PASSWORD:-postgres}
+      Jwt__Secret: local-supplier-jwt-secret-change-me-32chars
+      Cors__AllowedOrigins__0: http://localhost:3202
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  hangfire:
+    build:
+      context: .
+      dockerfile: docker/hangfire.Dockerfile
+    ports:
+      - "5103:8080"
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      PORT: "8080"
+      ConnectionStrings__DefaultConnection: Host=postgres;Port=5432;Database=${POSTGRES_DB:-bfa};Username=${POSTGRES_USER:-postgres};Password=${POSTGRES_PASSWORD:-postgres}
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  public-ui:
+    build:
+      context: .
+      dockerfile: docker/public-ui.Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: http://localhost:5100
+        NEXT_PUBLIC_SUPPLIER_API_URL: http://localhost:5102
+    ports:
+      - "3200:3000"
+    environment:
+      PORT: "3000"
+    depends_on:
+      - public-api
+
+  admin-ui:
+    build:
+      context: .
+      dockerfile: docker/admin-ui.Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: http://localhost:5101
+    ports:
+      - "3201:3000"
+    environment:
+      PORT: "3000"
+    depends_on:
+      - admin-api
+
+  supplier-ui:
+    build:
+      context: .
+      dockerfile: docker/supplier-ui.Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: http://localhost:5102
+    ports:
+      - "3202:3000"
+    environment:
+      PORT: "3000"
+    depends_on:
+      - supplier-api

@@ -1,14 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { FormEvent, useState } from "react";
+import { FormEvent, Suspense, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { PublicSiteLayout } from "@/components/layout/PublicSiteLayout";
 import { useAuth } from "@/components/providers/AuthProvider";
 import { useLanguage } from "@/components/providers/LanguageProvider";
 import { ApiError } from "@/lib/api";
 
-export default function LoginPage() {
+function LoginPageContent() {
   const { translate } = useLanguage();
   const { login } = useAuth();
   const searchParams = useSearchParams();
@@ -87,5 +87,13 @@ export default function LoginPage() {
         </div>
       </section>
     </PublicSiteLayout>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={null}>
+      <LoginPageContent />
+    </Suspense>
   );
 }

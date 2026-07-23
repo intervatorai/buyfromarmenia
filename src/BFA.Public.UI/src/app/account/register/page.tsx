@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, Suspense, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { PublicSiteLayout } from "@/components/layout/PublicSiteLayout";
 import { useAuth } from "@/components/providers/AuthProvider";
@@ -13,7 +13,7 @@ import {
   buildE164Phone,
 } from "@/lib/phone-countries";
 
-export default function RegisterPage() {
+function RegisterPageContent() {
   const { translate } = useLanguage();
   const { register } = useAuth();
   const searchParams = useSearchParams();
@@ -137,5 +137,13 @@ export default function RegisterPage() {
         </div>
       </section>
     </PublicSiteLayout>
+  );
+}
+
+export default function RegisterPage() {
+  return (
+    <Suspense fallback={null}>
+      <RegisterPageContent />
+    </Suspense>
   );
 }

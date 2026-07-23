@@ -149,6 +149,7 @@ export type PublicOrderDetail = {
   paymentStatus: string;
   paymentReference?: string | null;
   fulfillmentStatus: string;
+  trackingStage: string;
   subtotal: number;
   currency: string;
   shippingAddress: {

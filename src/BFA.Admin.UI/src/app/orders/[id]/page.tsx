@@ -14,6 +14,7 @@ type OrderDetail = {
   status: string;
   paymentStatus: string;
   fulfillmentStatus: string;
+  trackingStage: string;
   subtotal: number;
   estimatedWeightKg: number;
   shippingFeeQuoted: number;
@@ -74,6 +75,17 @@ const SHIPMENT_STATUSES = [
   "Delivered",
 ] as const;
 
+const TRACKING_STAGES = [
+  { value: "OrderPlaced", label: "Order placed" },
+  { value: "Confirmed", label: "Confirmed" },
+  { value: "BeingPrepared", label: "Being prepared" },
+  { value: "AtWarehouse", label: "At warehouse" },
+  { value: "Shipped", label: "Shipped" },
+  { value: "InTransit", label: "In transit" },
+  { value: "OutForDelivery", label: "Out for delivery" },
+  { value: "Delivered", label: "Delivered" },
+] as const;
+
 export default function OrderDetailPage() {
   const params = useParams<{ id: string }>();
   const [order, setOrder] = useState<OrderDetail | null>(null);
@@ -89,6 +101,8 @@ export default function OrderDetailPage() {
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
   const [shipmentStatus, setShipmentStatus] = useState("");
   const [isUpdatingShipment, setIsUpdatingShipment] = useState(false);
+  const [trackingStage, setTrackingStage] = useState("OrderPlaced");
+  const [isUpdatingTracking, setIsUpdatingTracking] = useState(false);
 
   async function load() {
     try {
@@ -99,6 +113,7 @@ export default function OrderDetailPage() {
       setOrderStatus(data.status);
       setPaymentStatus(data.paymentStatus);
       setShipmentStatus(data.shipment?.status ?? "");
+      setTrackingStage(data.trackingStage ?? "OrderPlaced");
       setError("");
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Failed to load order.");
@@ -184,6 +199,29 @@ export default function OrderDetailPage() {
     }
   }
 
+  async function updateTrackingStage(event: FormEvent) {
+    event.preventDefault();
+    if (!order) {
+      return;
+    }
+
+    setIsUpdatingTracking(true);
+    setError("");
+    setMessage("");
+    try {
+      await apiFetch(`/api/orders/${order.id}/tracking-stage`, {
+        method: "PUT",
+        body: JSON.stringify({ trackingStage }),
+      });
+      setMessage("Customer tracking stage updated.");
+      await load();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Failed to update tracking stage.");
+    } finally {
+      setIsUpdatingTracking(false);
+    }
+  }
+
   async function updateShipmentStatus(event: FormEvent) {
     event.preventDefault();
     if (!order?.shipment) return;
@@ -240,6 +278,7 @@ export default function OrderDetailPage() {
               <div className="admin-card-label">Statuses</div>
               <div>
                 {order.status} · {order.paymentStatus} · {order.fulfillmentStatus}
+                {order.trackingStage ? ` · track: ${order.trackingStage}` : ""}
               </div>
               <form className="order-status-form" onSubmit={(event) => void updateStatus(event)}>
                 <div className="form-field">
@@ -316,6 +355,47 @@ export default function OrderDetailPage() {
                 {order.shippingAddress.countryCode}
               </div>
             </div>
+          </div>
+
+          <div className="admin-card shipping-status-card" style={{ marginBottom: 24 }}>
+            <div className="shipping-adjust-header">
+              <h2>Customer tracking</h2>
+              <p>
+                Controls the progress timeline the customer sees on their order page
+                (Order placed → Delivered).
+              </p>
+            </div>
+            <form
+              className="shipping-status-form"
+              onSubmit={(event) => void updateTrackingStage(event)}
+            >
+              <div className="form-field">
+                <label htmlFor="tracking-stage">Tracking stage</label>
+                <select
+                  id="tracking-stage"
+                  className="form-control"
+                  value={trackingStage}
+                  onChange={(event) => setTrackingStage(event.target.value)}
+                >
+                  {TRACKING_STAGES.map((stage) => (
+                    <option key={stage.value} value={stage.value}>
+                      {stage.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <p className="order-status-hint">
+                Late stages sync carrier shipment when one exists. Delivered also
+                completes the order.
+              </p>
+              <button
+                type="submit"
+                className="button-primary"
+                disabled={isUpdatingTracking}
+              >
+                {isUpdatingTracking ? "Saving…" : "Update tracking"}
+              </button>
+            </form>
           </div>
 
           <div className="admin-card shipping-status-card">

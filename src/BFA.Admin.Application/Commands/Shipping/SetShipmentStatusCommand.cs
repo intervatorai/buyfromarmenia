@@ -51,17 +51,24 @@ public sealed class SetShipmentStatusCommandHandler
         await _shipmentRepository.UpdateAsync(shipment, cancellationToken);
 
         var orderCompleted = false;
-        if (shipment.Status == ShipmentStatus.Delivered)
+        var order = await _customerOrderRepository.GetByIdForUpdateAsync(
+            shipment.CustomerOrderId,
+            cancellationToken);
+        if (order is not null)
         {
-            var order = await _customerOrderRepository.GetByIdForUpdateAsync(
-                shipment.CustomerOrderId,
-                cancellationToken);
-            if (order is not null)
+            var tracking = MapTrackingStage(shipment.Status);
+            if (order.TrackingStage != tracking)
+            {
+                order.SetTrackingStageAsAdmin(tracking);
+            }
+
+            if (shipment.Status == ShipmentStatus.Delivered)
             {
                 order.MarkCompleted();
-                await _customerOrderRepository.UpdateAsync(order, cancellationToken);
                 orderCompleted = true;
             }
+
+            await _customerOrderRepository.UpdateAsync(order, cancellationToken);
         }
 
         await _auditLogger.WriteAsync(
@@ -79,4 +86,16 @@ public sealed class SetShipmentStatusCommandHandler
             shipment.CustomerOrderId,
             orderCompleted);
     }
+
+    private static BFA.Modules.Ordering.Domain.Enums.CustomerTrackingStage MapTrackingStage(
+        ShipmentStatus status) =>
+        status switch
+        {
+            ShipmentStatus.Created => BFA.Modules.Ordering.Domain.Enums.CustomerTrackingStage.AtWarehouse,
+            ShipmentStatus.PickedUp => BFA.Modules.Ordering.Domain.Enums.CustomerTrackingStage.Shipped,
+            ShipmentStatus.InTransit => BFA.Modules.Ordering.Domain.Enums.CustomerTrackingStage.InTransit,
+            ShipmentStatus.OutForDelivery => BFA.Modules.Ordering.Domain.Enums.CustomerTrackingStage.OutForDelivery,
+            ShipmentStatus.Delivered => BFA.Modules.Ordering.Domain.Enums.CustomerTrackingStage.Delivered,
+            _ => BFA.Modules.Ordering.Domain.Enums.CustomerTrackingStage.AtWarehouse
+        };
 }

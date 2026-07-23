@@ -17,6 +17,7 @@ public sealed class CustomerOrder : AggregateRoot
     public OrderStatus Status { get; private set; }
     public PaymentStatus PaymentStatus { get; private set; }
     public FulfillmentStatus FulfillmentStatus { get; private set; }
+    public CustomerTrackingStage TrackingStage { get; private set; }
     public decimal Subtotal { get; private set; }
     public decimal EstimatedWeightKg { get; private set; }
     public decimal ShippingFeeQuoted { get; private set; }
@@ -102,6 +103,7 @@ public sealed class CustomerOrder : AggregateRoot
         Status = OrderStatus.Placed;
         PaymentStatus = PaymentStatus.Pending;
         FulfillmentStatus = FulfillmentStatus.Pending;
+        TrackingStage = CustomerTrackingStage.OrderPlaced;
         Currency = currencies[0];
         Subtotal = items.Sum(item => item.UnitPrice * item.Quantity);
         EstimatedWeightKg = estimatedWeightKg;
@@ -168,6 +170,11 @@ public sealed class CustomerOrder : AggregateRoot
 
         Status = OrderStatus.Confirmed;
         FulfillmentStatus = FulfillmentStatus.InProgress;
+        if (TrackingStage < CustomerTrackingStage.Confirmed)
+        {
+            TrackingStage = CustomerTrackingStage.Confirmed;
+        }
+
         UpdatedAtUtc = DateTime.UtcNow;
     }
 
@@ -195,6 +202,7 @@ public sealed class CustomerOrder : AggregateRoot
 
         Status = OrderStatus.Completed;
         FulfillmentStatus = FulfillmentStatus.Completed;
+        TrackingStage = CustomerTrackingStage.Delivered;
         UpdatedAtUtc = DateTime.UtcNow;
     }
 
@@ -240,6 +248,11 @@ public sealed class CustomerOrder : AggregateRoot
 
                 Status = OrderStatus.Confirmed;
                 FulfillmentStatus = FulfillmentStatus.InProgress;
+                if (TrackingStage < CustomerTrackingStage.Confirmed)
+                {
+                    TrackingStage = CustomerTrackingStage.Confirmed;
+                }
+
                 break;
 
             case OrderStatus.Completed:
@@ -260,6 +273,7 @@ public sealed class CustomerOrder : AggregateRoot
 
                 Status = OrderStatus.Completed;
                 FulfillmentStatus = FulfillmentStatus.Completed;
+                TrackingStage = CustomerTrackingStage.Delivered;
                 break;
 
             case OrderStatus.Cancelled:
@@ -320,6 +334,40 @@ public sealed class CustomerOrder : AggregateRoot
         }
 
         UpdatedAtUtc = DateTime.UtcNow;
+    }
+
+    /// <summary>
+    /// Admin override for the customer-facing tracking timeline (8 stages).
+    /// </summary>
+    public void SetTrackingStageAsAdmin(CustomerTrackingStage stage)
+    {
+        TrackingStage = stage;
+        UpdatedAtUtc = DateTime.UtcNow;
+
+        if (stage >= CustomerTrackingStage.Confirmed
+            && Status == OrderStatus.Placed
+            && PaymentStatus != PaymentStatus.Failed)
+        {
+            if (PaymentStatus == PaymentStatus.Pending)
+            {
+                PaymentStatus = PaymentStatus.Paid;
+            }
+
+            Status = OrderStatus.Confirmed;
+            FulfillmentStatus = FulfillmentStatus.InProgress;
+        }
+
+        if (stage == CustomerTrackingStage.Delivered
+            && Status != OrderStatus.Cancelled)
+        {
+            if (PaymentStatus == PaymentStatus.Pending)
+            {
+                PaymentStatus = PaymentStatus.Paid;
+            }
+
+            Status = OrderStatus.Completed;
+            FulfillmentStatus = FulfillmentStatus.Completed;
+        }
     }
 }
 
