@@ -10,6 +10,7 @@ const navItems = [
   { href: "/products", label: "Products" },
   { href: "/categories", label: "Categories" },
   { href: "/vendors", label: "Vendors" },
+  { href: "/customers", label: "Customers" },
   { href: "/orders", label: "Orders" },
   { href: "/warehouse", label: "Warehouse" },
   { href: "/logistics", label: "Logistics" },
@@ -19,7 +20,7 @@ const navItems = [
   { href: "/settings/compliance", label: "Compliance" },
   { href: "/settings/shipping-countries", label: "Shipping countries" },
   { href: "/settings/shipping-rates", label: "Shipping rates" },
-  { href: "/settings/users", label: "Users" },
+  { href: "/settings/users", label: "Admin users" },
 ];
 
 export function AdminShell({

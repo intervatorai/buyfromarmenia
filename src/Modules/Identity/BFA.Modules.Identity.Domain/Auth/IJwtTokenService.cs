@@ -7,7 +7,11 @@ public record AuthTokenResult(string AccessToken, DateTime ExpiresAt);
 public interface IJwtTokenService
 {
     AuthTokenResult GenerateToken(AdminUser adminUser);
-    AuthTokenResult GenerateCustomerToken(User user, CustomerProfile profile);
+    AuthTokenResult GenerateCustomerToken(
+        User user,
+        CustomerProfile profile,
+        Guid? impersonatedByAdminId = null,
+        int? expirationHoursOverride = null);
     AuthTokenResult GenerateSupplierToken(
         User user,
         Guid supplierId,

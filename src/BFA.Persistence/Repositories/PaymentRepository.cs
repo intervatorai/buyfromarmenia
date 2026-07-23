@@ -24,6 +24,21 @@ public sealed class PaymentRepository : IPaymentRepository
                 cancellationToken);
     }
 
+    public async Task<IReadOnlyList<Payment>> GetByCustomerOrderIdsAsync(
+        IReadOnlyCollection<Guid> customerOrderIds,
+        CancellationToken cancellationToken = default)
+    {
+        if (customerOrderIds.Count == 0)
+        {
+            return [];
+        }
+
+        return await _dbContext.Payments
+            .AsNoTracking()
+            .Where(payment => customerOrderIds.Contains(payment.CustomerOrderId))
+            .ToListAsync(cancellationToken);
+    }
+
     public Task<Payment?> GetByCustomerOrderIdForUpdateAsync(
         Guid customerOrderId,
         CancellationToken cancellationToken = default)

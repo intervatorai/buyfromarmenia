@@ -1,5 +1,6 @@
 using BFA.Modules.Fulfillment.Domain.Repositories;
 using BFA.Modules.Ordering.Domain.Repositories;
+using BFA.Modules.Payments.Domain.Repositories;
 using BFA.Modules.Shipping.Domain.Repositories;
 using MediatR;
 
@@ -10,6 +11,7 @@ public record GetCustomerOrderQuery(Guid OrderId) : IRequest<AdminCustomerOrderD
 public record AdminCustomerOrderDetailDto(
     Guid Id,
     string OrderNumber,
+    Guid? CustomerUserId,
     string CustomerEmail,
     string CustomerFullName,
     string Status,
@@ -26,6 +28,7 @@ public record AdminCustomerOrderDetailDto(
     string Currency,
     DateTime CreatedAtUtc,
     AdminOrderAddressDto ShippingAddress,
+    AdminOrderPaymentDto? Payment,
     IReadOnlyList<AdminOrderItemDto> Items,
     IReadOnlyList<AdminSupplierOrderDto> SupplierOrders,
     AdminOrderShipmentDto? Shipment);
@@ -37,6 +40,14 @@ public record AdminOrderAddressDto(
     string? Line2,
     string? PostalCode,
     string? Region);
+
+public record AdminOrderPaymentDto(
+    string Provider,
+    decimal Amount,
+    string Currency,
+    string Status,
+    string? ExternalReference,
+    DateTime? CapturedAtUtc);
 
 public record AdminOrderItemDto(
     Guid ProductId,
@@ -82,15 +93,18 @@ public sealed class GetCustomerOrderQueryHandler
     private readonly ICustomerOrderRepository _customerOrderRepository;
     private readonly ISupplierOrderRepository _supplierOrderRepository;
     private readonly IShipmentRepository _shipmentRepository;
+    private readonly IPaymentRepository _paymentRepository;
 
     public GetCustomerOrderQueryHandler(
         ICustomerOrderRepository customerOrderRepository,
         ISupplierOrderRepository supplierOrderRepository,
-        IShipmentRepository shipmentRepository)
+        IShipmentRepository shipmentRepository,
+        IPaymentRepository paymentRepository)
     {
         _customerOrderRepository = customerOrderRepository;
         _supplierOrderRepository = supplierOrderRepository;
         _shipmentRepository = shipmentRepository;
+        _paymentRepository = paymentRepository;
     }
 
     public async Task<AdminCustomerOrderDetailDto?> Handle(
@@ -109,10 +123,14 @@ public sealed class GetCustomerOrderQueryHandler
         var shipment = await _shipmentRepository.GetByCustomerOrderIdAsync(
             order.Id,
             cancellationToken);
+        var payment = await _paymentRepository.GetByCustomerOrderIdAsync(
+            order.Id,
+            cancellationToken);
 
         return new AdminCustomerOrderDetailDto(
             order.Id,
             order.OrderNumber,
+            order.CustomerUserId,
             order.CustomerEmail,
             order.CustomerFullName,
             order.Status.ToString(),
@@ -135,6 +153,15 @@ public sealed class GetCustomerOrderQueryHandler
                 order.ShippingAddress.Line2,
                 order.ShippingAddress.PostalCode,
                 order.ShippingAddress.Region),
+            payment is null
+                ? null
+                : new AdminOrderPaymentDto(
+                    payment.Provider.ToString(),
+                    payment.Amount,
+                    payment.Currency,
+                    payment.Status.ToString(),
+                    payment.ExternalReference,
+                    payment.CapturedAtUtc),
             order.Items.Select(item => new AdminOrderItemDto(
                 item.ProductId,
                 item.ProductVariantId,

@@ -9,6 +9,7 @@ import { ApiError, apiFetch } from "@/lib/api";
 type OrderDetail = {
   id: string;
   orderNumber: string;
+  customerUserId?: string | null;
   customerEmail: string;
   customerFullName: string;
   status: string;
@@ -32,6 +33,14 @@ type OrderDetail = {
     postalCode?: string | null;
     region?: string | null;
   };
+  payment?: {
+    provider: string;
+    amount: number;
+    currency: string;
+    status: string;
+    externalReference?: string | null;
+    capturedAtUtc?: string | null;
+  } | null;
   items: Array<{
     productId: string;
     productName: string;
@@ -273,6 +282,36 @@ export default function OrderDetailPage() {
                 {order.customerFullName}
               </div>
               <div style={{ color: "var(--admin-muted)", marginTop: 8 }}>{order.customerEmail}</div>
+              {order.customerUserId ? (
+                <div style={{ marginTop: 8 }}>
+                  <Link href={`/customers/${order.customerUserId}`}>View customer</Link>
+                </div>
+              ) : null}
+            </div>
+            <div className="admin-card">
+              <div className="admin-card-label">Payment</div>
+              {order.payment ? (
+                <>
+                  <div className="admin-card-value" style={{ fontSize: 18 }}>
+                    {order.payment.amount.toFixed(2)} {order.payment.currency}
+                  </div>
+                  <div style={{ marginTop: 8 }}>
+                    {order.payment.provider} · {order.payment.status}
+                  </div>
+                  {order.payment.capturedAtUtc ? (
+                    <div style={{ color: "var(--admin-muted)", marginTop: 8, fontSize: 13 }}>
+                      Captured {new Date(order.payment.capturedAtUtc).toLocaleString("en-GB")}
+                    </div>
+                  ) : null}
+                  {order.payment.externalReference ? (
+                    <div style={{ color: "var(--admin-muted)", marginTop: 4, fontSize: 13 }}>
+                      Ref: {order.payment.externalReference}
+                    </div>
+                  ) : null}
+                </>
+              ) : (
+                <div>{order.paymentStatus}</div>
+              )}
             </div>
             <div className="admin-card">
               <div className="admin-card-label">Statuses</div>

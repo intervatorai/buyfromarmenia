@@ -62,14 +62,19 @@ public class JwtTokenService : IJwtTokenService
         return new AuthTokenResult(new JwtSecurityTokenHandler().WriteToken(token), expiresAt);
     }
 
-    public AuthTokenResult GenerateCustomerToken(User user, CustomerProfile profile)
+    public AuthTokenResult GenerateCustomerToken(
+        User user,
+        CustomerProfile profile,
+        Guid? impersonatedByAdminId = null,
+        int? expirationHoursOverride = null)
     {
-        var jwtSettings = _configuration.GetSection("Jwt");
+        var jwtSettings = ResolveCustomerJwtSettings();
         var secret = jwtSettings["Secret"]
-            ?? throw new InvalidOperationException("JWT secret is not configured.");
+            ?? throw new InvalidOperationException("Customer JWT secret is not configured.");
         var issuer = jwtSettings["Issuer"] ?? "BFA.Public.Api";
         var audience = jwtSettings["Audience"] ?? "BFA.Public.UI";
-        var expirationHours = int.TryParse(jwtSettings["ExpirationHours"], out var hours) ? hours : 168;
+        var expirationHours = expirationHoursOverride
+            ?? (int.TryParse(jwtSettings["ExpirationHours"], out var hours) ? hours : 168);
 
         var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secret));
         var credentials = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
@@ -84,6 +89,11 @@ public class JwtTokenService : IJwtTokenService
             new(ClaimTypes.Role, "Customer")
         };
 
+        if (impersonatedByAdminId.HasValue)
+        {
+            claims.Add(new Claim("impersonated_by", impersonatedByAdminId.Value.ToString()));
+        }
+
         var token = new JwtSecurityToken(
             issuer,
             audience,
@@ -92,6 +102,17 @@ public class JwtTokenService : IJwtTokenService
             signingCredentials: credentials);
 
         return new AuthTokenResult(new JwtSecurityTokenHandler().WriteToken(token), expiresAt);
+    }
+
+    private IConfigurationSection ResolveCustomerJwtSettings()
+    {
+        var publicJwt = _configuration.GetSection("PublicJwt");
+        if (!string.IsNullOrWhiteSpace(publicJwt["Secret"]))
+        {
+            return publicJwt;
+        }
+
+        return _configuration.GetSection("Jwt");
     }
 
     public AuthTokenResult GenerateSupplierToken(

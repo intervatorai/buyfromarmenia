@@ -1,0 +1,11 @@
+# Prefer this when Railway Root Directory = src/BFA.Public.UI (Nixpacks).
+# For monorepo Docker builds, leave Root Directory empty and use docker/public-ui.Dockerfile instead.
+
+[build]
+builder = "NIXPACKS"
+buildCommand = "npm ci && npm run build"
+
+[deploy]
+startCommand = "HOSTNAME=0.0.0.0 npm run start"
+healthcheckPath = "/"
+restartPolicyType = "ON_FAILURE"

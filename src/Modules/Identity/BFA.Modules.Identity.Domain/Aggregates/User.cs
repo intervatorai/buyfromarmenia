@@ -58,4 +58,34 @@ public sealed class User : AggregateRoot
 
         LastLoginAtUtc = DateTime.UtcNow;
     }
+
+    public void Suspend()
+    {
+        if (Status == UserStatus.Suspended)
+        {
+            return;
+        }
+
+        Status = UserStatus.Suspended;
+    }
+
+    public void Activate()
+    {
+        if (Status == UserStatus.Active)
+        {
+            return;
+        }
+
+        Status = UserStatus.Active;
+    }
+
+    public void SetPasswordHash(string passwordHash)
+    {
+        if (string.IsNullOrWhiteSpace(passwordHash))
+        {
+            throw new DomainException("Password hash is required.");
+        }
+
+        PasswordHash = passwordHash;
+    }
 }

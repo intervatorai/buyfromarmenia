@@ -30,6 +30,10 @@ services:
       PORT: "8080"
       ConnectionStrings__DefaultConnection: Host=postgres;Port=5432;Database=${POSTGRES_DB:-bfa};Username=${POSTGRES_USER:-postgres};Password=${POSTGRES_PASSWORD:-postgres}
       Jwt__Secret: local-admin-jwt-secret-change-me-32chars
+      PublicJwt__Secret: local-public-jwt-secret-change-me-32chars
+      PublicJwt__Issuer: BFA.Public.Api
+      PublicJwt__Audience: BFA.Public.UI
+      PublicJwt__ExpirationHours: "2"
       Cors__AllowedOrigins__0: http://localhost:3201
     depends_on:
       postgres:
@@ -85,6 +89,7 @@ services:
       dockerfile: docker/admin-ui.Dockerfile
       args:
         NEXT_PUBLIC_API_URL: http://localhost:5101
+        NEXT_PUBLIC_PUBLIC_SITE_URL: http://localhost:3200
     ports:
       - "3201:3000"
     environment:

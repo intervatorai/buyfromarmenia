@@ -8,6 +8,10 @@ public interface IPaymentRepository
         Guid customerOrderId,
         CancellationToken cancellationToken = default);
 
+    Task<IReadOnlyList<Payment>> GetByCustomerOrderIdsAsync(
+        IReadOnlyCollection<Guid> customerOrderIds,
+        CancellationToken cancellationToken = default);
+
     Task<Payment?> GetByCustomerOrderIdForUpdateAsync(
         Guid customerOrderId,
         CancellationToken cancellationToken = default);

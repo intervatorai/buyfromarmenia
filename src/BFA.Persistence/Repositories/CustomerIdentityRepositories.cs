@@ -1,4 +1,5 @@
 using BFA.Modules.Identity.Domain.Aggregates;
+using BFA.Modules.Identity.Domain.Enums;
 using BFA.Modules.Identity.Domain.Repositories;
 using Microsoft.EntityFrameworkCore;
 
@@ -20,11 +21,35 @@ public sealed class UserRepository : IUserRepository
             .FirstOrDefaultAsync(user => user.Id == id, cancellationToken);
     }
 
+    public Task<User?> GetByIdForUpdateAsync(Guid id, CancellationToken cancellationToken = default)
+    {
+        return _dbContext.Users
+            .FirstOrDefaultAsync(user => user.Id == id, cancellationToken);
+    }
+
     public Task<User?> GetByEmailAsync(string email, CancellationToken cancellationToken = default)
     {
         var normalized = email.Trim().ToLowerInvariant();
         return _dbContext.Users
             .FirstOrDefaultAsync(user => user.Email == normalized, cancellationToken);
+    }
+
+    public async Task<IReadOnlyList<User>> GetCustomersAsync(
+        UserStatus? status = null,
+        CancellationToken cancellationToken = default)
+    {
+        var query = _dbContext.Users
+            .AsNoTracking()
+            .Where(user => user.Type == UserType.Customer);
+
+        if (status.HasValue)
+        {
+            query = query.Where(user => user.Status == status.Value);
+        }
+
+        return await query
+            .OrderByDescending(user => user.CreatedAtUtc)
+            .ToListAsync(cancellationToken);
     }
 
     public async Task AddAsync(User user, CancellationToken cancellationToken = default)
@@ -65,6 +90,21 @@ public sealed class CustomerProfileRepository : ICustomerProfileRepository
     {
         return _dbContext.CustomerProfiles
             .FirstOrDefaultAsync(profile => profile.UserId == userId, cancellationToken);
+    }
+
+    public async Task<IReadOnlyList<CustomerProfile>> GetByUserIdsAsync(
+        IReadOnlyCollection<Guid> userIds,
+        CancellationToken cancellationToken = default)
+    {
+        if (userIds.Count == 0)
+        {
+            return [];
+        }
+
+        return await _dbContext.CustomerProfiles
+            .AsNoTracking()
+            .Where(profile => userIds.Contains(profile.UserId))
+            .ToListAsync(cancellationToken);
     }
 
     public async Task AddAsync(CustomerProfile profile, CancellationToken cancellationToken = default)
