@@ -48,10 +48,11 @@ using (var scope = app.Services.CreateScope())
         job => job.ExecuteAsync(CancellationToken.None),
         "*/5 * * * *");
 
-    recurringJobManager.AddOrUpdate<ProcessOutboxMessagesJob>(
-        JobIds.ProcessOutboxMessages,
-        job => job.ExecuteAsync(CancellationToken.None),
-        Cron.Minutely);
+    // TODO: Re-enable after outbox_messages table is created in migrations
+    // recurringJobManager.AddOrUpdate<ProcessOutboxMessagesJob>(
+    //     JobIds.ProcessOutboxMessages,
+    //     job => job.ExecuteAsync(CancellationToken.None),
+    //     Cron.Minutely);
 
     var migrationJobId = BackgroundJob.Enqueue<ApplyDatabaseMigrationsJob>(
         job => job.ExecuteAsync(CancellationToken.None));
@@ -73,3 +74,4 @@ app.MapGet("/", () => Results.Redirect("/hangfire"));
 app.MapGet("/health", () => Results.Ok(new { status = "ok" }));
 
 app.Run();
+
