@@ -23,5 +23,5 @@ EXPOSE 8080
 COPY docker/dotnet-entrypoint.sh /app/entrypoint.sh
 COPY --from=publish /app/publish .
 RUN chmod +x /app/entrypoint.sh
-USER $APP_UID
 ENTRYPOINT ["/app/entrypoint.sh"]
+
