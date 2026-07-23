@@ -25,17 +25,32 @@ public class DatabaseMigrationService
 
     private async Task EnsureSchemasAsync(CancellationToken cancellationToken)
     {
-        await _dbContext.Database.ExecuteSqlRawAsync(
-            "CREATE SCHEMA IF NOT EXISTS identity;",
-            cancellationToken);
-        await _dbContext.Database.ExecuteSqlRawAsync(
-            "CREATE SCHEMA IF NOT EXISTS suppliers;",
-            cancellationToken);
-        await _dbContext.Database.ExecuteSqlRawAsync(
-            "CREATE SCHEMA IF NOT EXISTS catalog;",
-            cancellationToken);
-        await _dbContext.Database.ExecuteSqlRawAsync(
-            "CREATE SCHEMA IF NOT EXISTS shipping;",
-            cancellationToken);
+        string[] schemas =
+        [
+            "identity",
+            "suppliers",
+            "catalog",
+            "shipping",
+            "infrastructure",
+            "inventory",
+            "shopping",
+            "ordering",
+            "payments",
+            "fulfillment",
+            "warehouse",
+            "settlements",
+            "returns",
+            "compliance"
+        ];
+
+        foreach (var schema in schemas)
+        {
+            // Schema names are fixed literals from the allow-list above.
+#pragma warning disable EF1002
+            await _dbContext.Database.ExecuteSqlRawAsync(
+                $"CREATE SCHEMA IF NOT EXISTS {schema};",
+                cancellationToken);
+#pragma warning restore EF1002
+        }
     }
 }

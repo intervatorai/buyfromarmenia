@@ -32,6 +32,13 @@ if (app.Environment.IsDevelopment())
     app.MapOpenApi();
 }
 
+// Apply EF migrations before Hangfire starts processing jobs (avoids outbox/table races).
+using (var scope = app.Services.CreateScope())
+{
+    var migrations = scope.ServiceProvider.GetRequiredService<DatabaseMigrationService>();
+    await migrations.ApplyMigrationsAsync();
+}
+
 app.UseHangfireDashboard("/hangfire");
 
 using (var scope = app.Services.CreateScope())
@@ -41,7 +48,7 @@ using (var scope = app.Services.CreateScope())
     recurringJobManager.AddOrUpdate<ApplyDatabaseMigrationsJob>(
         JobIds.ApplyDatabaseMigrations,
         job => job.ExecuteAsync(CancellationToken.None),
-        Cron.Minutely);
+        Cron.Hourly);
 
     recurringJobManager.AddOrUpdate<EnsureDefaultSuperAdminJob>(
         JobIds.EnsureDefaultSuperAdmin,
@@ -53,19 +60,11 @@ using (var scope = app.Services.CreateScope())
         job => job.ExecuteAsync(CancellationToken.None),
         Cron.Minutely);
 
-    var migrationJobId = BackgroundJob.Enqueue<ApplyDatabaseMigrationsJob>(
+    BackgroundJob.Enqueue<EnsureDefaultSuperAdminJob>(
         job => job.ExecuteAsync(CancellationToken.None));
-
-    BackgroundJob.ContinueJobWith<EnsureDefaultSuperAdminJob>(
-        migrationJobId,
+    BackgroundJob.Enqueue<SeedDefaultCategoriesJob>(
         job => job.ExecuteAsync(CancellationToken.None));
-
-    BackgroundJob.ContinueJobWith<SeedDefaultCategoriesJob>(
-        migrationJobId,
-        job => job.ExecuteAsync(CancellationToken.None));
-
-    BackgroundJob.ContinueJobWith<SeedDefaultTradeRestrictionsJob>(
-        migrationJobId,
+    BackgroundJob.Enqueue<SeedDefaultTradeRestrictionsJob>(
         job => job.ExecuteAsync(CancellationToken.None));
 }
 
