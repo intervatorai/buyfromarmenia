@@ -20,8 +20,9 @@ ENV ASPNETCORE_ENVIRONMENT=Production \
     DOTNET_EnableDiagnostics=0 \
     APP_DLL=BFA.Hangfire.dll
 EXPOSE 8080
-COPY docker/dotnet-entrypoint.sh /app/entrypoint.sh
+COPY docker/dotnet-entrypoint.sh ./entrypoint.sh
 COPY --from=publish /app/publish .
-RUN chmod +x /app/entrypoint.sh
+RUN chmod +x ./entrypoint.sh
 USER $APP_UID
-ENTRYPOINT ["/app/entrypoint.sh"]
+ENTRYPOINT ["./entrypoint.sh"]
+
