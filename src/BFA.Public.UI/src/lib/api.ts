@@ -1,6 +1,9 @@
 import { getCustomerTokenFromCookie } from "./auth";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:5100";
+const API_URL = (process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:5100").replace(
+  /\/$/,
+  "",
+);
 
 export class ApiError extends Error {
   status: number;
@@ -11,10 +14,47 @@ export class ApiError extends Error {
   }
 }
 
+function readErrorMessage(text: string, statusText: string): string {
+  if (!text) {
+    return statusText || "Request failed";
+  }
+
+  try {
+    const parsed = JSON.parse(text) as {
+      error?: string;
+      message?: string;
+      title?: string;
+      detail?: string;
+    };
+    return (
+      parsed.error ||
+      parsed.message ||
+      parsed.detail ||
+      parsed.title ||
+      statusText ||
+      "Request failed"
+    );
+  } catch {
+    // Never dump HTML (e.g. Next.js 404 page) into the UI.
+    if (/^\s*</.test(text) || text.includes("<!DOCTYPE")) {
+      return statusText || "API request failed";
+    }
+
+    return text.length > 280 ? `${text.slice(0, 280)}…` : text;
+  }
+}
+
 export async function apiFetch<T>(
   path: string,
   options: RequestInit = {},
 ): Promise<T> {
+  if (!API_URL) {
+    throw new ApiError(
+      "NEXT_PUBLIC_API_URL is not configured. Set it to the Public API URL at build time.",
+      0,
+    );
+  }
+
   const token = getCustomerTokenFromCookie();
   const headers = new Headers(options.headers);
 
@@ -32,19 +72,20 @@ export async function apiFetch<T>(
   });
 
   if (!response.ok) {
-    const text = await response.text();
-    let message = text || response.statusText;
-    try {
-      const parsed = JSON.parse(text) as { error?: string; message?: string; title?: string };
-      message = parsed.error || parsed.message || parsed.title || message;
-    } catch {
-      // keep raw text
-    }
-    throw new ApiError(message, response.status);
+    const text = await response.text().catch(() => "");
+    throw new ApiError(readErrorMessage(text, response.statusText), response.status);
   }
 
   if (response.status === 204) {
     return undefined as T;
+  }
+
+  const contentType = response.headers.get("content-type") ?? "";
+  if (!contentType.includes("application/json")) {
+    throw new ApiError(
+      `Expected JSON from ${API_URL}${path}, got ${contentType || "unknown content type"}. Check NEXT_PUBLIC_API_URL.`,
+      response.status,
+    );
   }
 
   return response.json() as Promise<T>;

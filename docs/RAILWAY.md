@@ -35,6 +35,8 @@ Uses `src/BFA.Public.UI/railway.toml`: build prepares standalone, start runs `no
 
 Still set `NEXT_PUBLIC_API_URL` as a **build-time** variable so it is inlined into the client bundle.
 
+**Common mistake:** pointing `NEXT_PUBLIC_API_URL` at the **public UI** domain (or leaving it empty). The browser then calls `/api/products` on Next.js, gets an HTML 404 page, and the home “Popular products” section used to dump that HTML on screen. It must be the **public-api** URL, e.g. `https://<public-api>.up.railway.app` (no trailing slash). After changing it, **rebuild** public-ui.
+
 ## Per-service settings
 
 For **every** API / Hangfire Docker service:
