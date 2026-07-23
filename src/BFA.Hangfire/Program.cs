@@ -8,8 +8,8 @@ using Hangfire.PostgreSql;
 
 var builder = WebApplication.CreateBuilder(args);
 
-var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
-    ?? throw new InvalidOperationException("Connection string 'DefaultConnection' not found.");
+var connectionString = PostgresConnectionString.Normalize(
+    builder.Configuration.GetConnectionString("DefaultConnection"));
 
 builder.Services.AddOpenApi();
 builder.Services.AddPersistence(builder.Configuration);

@@ -60,7 +60,7 @@ Recommended watch paths (optional, speeds up rebuilds):
 ConnectionStrings__DefaultConnection=${{Postgres.DATABASE_URL}}
 ```
 
-Prefer the Railway Postgres variable reference. If you use `DATABASE_URL`, convert to Npgsql form if needed:
+`${{Postgres.DATABASE_URL}}` is usually a `postgresql://…` URI. The apps convert it to Npgsql key=value form automatically. You can also paste an explicit Npgsql string:
 
 `Host=…;Port=…;Database=…;Username=…;Password=…;SSL Mode=Require;Trust Server Certificate=true`
 
