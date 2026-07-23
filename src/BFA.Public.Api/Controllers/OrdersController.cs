@@ -94,7 +94,12 @@ public sealed class OrdersController : ControllerBase
             return CreatedAtAction(
                 nameof(GetOrder),
                 new { id = success.OrderId },
-                new { orderId = success.OrderId, orderNumber = success.OrderNumber });
+                new
+                {
+                    orderId = success.OrderId,
+                    orderNumber = success.OrderNumber,
+                    checkoutUrl = success.CheckoutUrl
+                });
         }
 
         if (result is PlaceOrderComplianceBlocked blocked)

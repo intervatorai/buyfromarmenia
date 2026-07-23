@@ -6,7 +6,9 @@
     <ProjectReference Include="..\Modules\Suppliers\BFA.Modules.Suppliers.Domain\BFA.Modules.Suppliers.Domain.csproj" />
     <ProjectReference Include="..\BuildingBlocks\BFA.BuildingBlocks.Domain\BFA.BuildingBlocks.Domain.csproj" />
     <ProjectReference Include="..\Modules\Inventory\BFA.Modules.Inventory.Domain\BFA.Modules.Inventory.Domain.csproj" />
+    <ProjectReference Include="..\Modules\Shopping\BFA.Modules.Shopping.Domain\BFA.Modules.Shopping.Domain.csproj" />
     <ProjectReference Include="..\Modules\Fulfillment\BFA.Modules.Fulfillment.Domain\BFA.Modules.Fulfillment.Domain.csproj" />
+    <ProjectReference Include="..\Modules\Shipping\BFA.Modules.Shipping.Domain\BFA.Modules.Shipping.Domain.csproj" />
     <ProjectReference Include="..\Modules\Warehouse\BFA.Modules.Warehouse.Domain\BFA.Modules.Warehouse.Domain.csproj" />
     <ProjectReference Include="..\Modules\Settlements\BFA.Modules.Settlements.Domain\BFA.Modules.Settlements.Domain.csproj" />
     <ProjectReference Include="..\BuildingBlocks\BFA.BuildingBlocks.Application\BFA.BuildingBlocks.Application.csproj" />

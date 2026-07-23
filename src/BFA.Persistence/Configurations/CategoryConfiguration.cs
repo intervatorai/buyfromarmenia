@@ -19,6 +19,15 @@ public class CategoryConfiguration : IEntityTypeConfiguration<Category>
             .HasConversion<string>()
             .HasMaxLength(32);
 
+        builder.Property(category => category.SkuPrefix)
+            .IsRequired()
+            .HasMaxLength(4)
+            .HasDefaultValue(string.Empty);
+
+        builder.HasIndex(category => category.SkuPrefix)
+            .IsUnique()
+            .HasFilter("\"SkuPrefix\" <> ''");
+
         builder.Property(category => category.SortOrder)
             .IsRequired();
 

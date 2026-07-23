@@ -1,5 +1,5 @@
+using BFA.Modules.Catalog.Domain;
 using BFA.Modules.Catalog.Domain.Repositories;
-using BFA.Modules.Catalog.Domain.ValueObjects;
 using MediatR;
 
 namespace BFA.Supplier.Application.Commands.Products;
@@ -7,7 +7,7 @@ namespace BFA.Supplier.Application.Commands.Products;
 public record AddProductVariantCommand(
     Guid SupplierId,
     Guid ProductId,
-    string SupplierSku,
+    string? SupplierSku,
     decimal Weight,
     string CountryOfOrigin,
     string? Barcode = null,
@@ -17,10 +17,14 @@ public record AddProductVariantCommand(
 public class AddProductVariantCommandHandler : IRequestHandler<AddProductVariantCommand, bool>
 {
     private readonly IProductRepository _productRepository;
+    private readonly ICategoryRepository _categoryRepository;
 
-    public AddProductVariantCommandHandler(IProductRepository productRepository)
+    public AddProductVariantCommandHandler(
+        IProductRepository productRepository,
+        ICategoryRepository categoryRepository)
     {
         _productRepository = productRepository;
+        _categoryRepository = categoryRepository;
     }
 
     public async Task<bool> Handle(AddProductVariantCommand request, CancellationToken cancellationToken)
@@ -31,8 +35,15 @@ public class AddProductVariantCommandHandler : IRequestHandler<AddProductVariant
             return false;
         }
 
-        product.AddVariant(
+        var sku = await ProductSkuAssigner.ResolveAsync(
             request.SupplierSku,
+            product.CategoryId,
+            _categoryRepository,
+            _productRepository,
+            cancellationToken);
+
+        product.AddVariant(
+            sku,
             request.Weight,
             request.CountryOfOrigin,
             request.Barcode,

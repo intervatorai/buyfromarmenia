@@ -333,12 +333,37 @@ public sealed class Product : AggregateRoot
         string? color = null)
     {
         EnsureEditable();
+        return UpsertDefaultVariantCore(supplierSku, weight, countryOfOrigin, size, color);
+    }
 
-        var existing = _variants.FirstOrDefault();
-        if (existing is null)
-        {
-            return AddVariant(supplierSku, weight, countryOfOrigin, size: size, color: color);
-        }
+    /// <summary>
+    /// Admin override: upsert default variant without editable-status checks.
+    /// </summary>
+    public ProductVariant UpsertDefaultVariantAsAdmin(
+        string supplierSku,
+        decimal weight,
+        string countryOfOrigin,
+        string? size = null,
+        string? color = null)
+    {
+        return UpsertDefaultVariantCore(supplierSku, weight, countryOfOrigin, size, color);
+    }
+
+    /// <summary>
+    /// Admin override: update an existing variant by id without editable-status checks.
+    /// </summary>
+    public ProductVariant UpdateVariantAsAdmin(
+        Guid variantId,
+        string supplierSku,
+        decimal weight,
+        string countryOfOrigin,
+        string? size = null,
+        string? color = null)
+    {
+        var existing = _variants.FirstOrDefault(item => item.Id == variantId)
+            ?? throw new DomainException("Product variant was not found.");
+
+        EnsureUniqueSku(supplierSku, excludeVariantId: existing.Id);
 
         existing.Update(
             supplierSku,
@@ -351,6 +376,106 @@ public sealed class Product : AggregateRoot
             existing.CustomsCode);
         UpdatedAt = DateTime.UtcNow;
         return existing;
+    }
+
+    /// <summary>
+    /// Admin override: add a variant without editable-status checks.
+    /// </summary>
+    public ProductVariant AddVariantAsAdmin(
+        string supplierSku,
+        decimal weight,
+        string countryOfOrigin,
+        string? size = null,
+        string? color = null)
+    {
+        EnsureUniqueSku(supplierSku);
+
+        var variant = new ProductVariant(
+            Id,
+            supplierSku,
+            weight,
+            countryOfOrigin,
+            size: size,
+            color: color);
+
+        _variants.Add(variant);
+        UpdatedAt = DateTime.UtcNow;
+        RaiseDomainEvent(new VariantAddedDomainEvent(Id, variant.Id, variant.SupplierSku));
+        return variant;
+    }
+
+    public void RemoveVariant(Guid variantId)
+    {
+        EnsureEditable();
+        RemoveVariantCore(variantId);
+    }
+
+    public void RemoveVariantAsAdmin(Guid variantId)
+    {
+        RemoveVariantCore(variantId);
+    }
+
+    private void RemoveVariantCore(Guid variantId)
+    {
+        var existing = _variants.FirstOrDefault(item => item.Id == variantId)
+            ?? throw new DomainException("Product variant was not found.");
+
+        if (_variants.Count <= 1)
+        {
+            throw new DomainException(
+                "Cannot delete the last variant. Add another variant first, or archive the product.");
+        }
+
+        _variants.Remove(existing);
+        UpdatedAt = DateTime.UtcNow;
+    }
+
+    private ProductVariant UpsertDefaultVariantCore(
+        string supplierSku,
+        decimal weight,
+        string countryOfOrigin,
+        string? size,
+        string? color)
+    {
+        var existing = _variants.FirstOrDefault();
+        if (existing is null)
+        {
+            EnsureUniqueSku(supplierSku);
+            var created = new ProductVariant(
+                Id,
+                supplierSku,
+                weight,
+                countryOfOrigin,
+                size: size,
+                color: color);
+            _variants.Add(created);
+            UpdatedAt = DateTime.UtcNow;
+            RaiseDomainEvent(new VariantAddedDomainEvent(Id, created.Id, created.SupplierSku));
+            return created;
+        }
+
+        EnsureUniqueSku(supplierSku, excludeVariantId: existing.Id);
+        existing.Update(
+            supplierSku,
+            weight,
+            countryOfOrigin,
+            existing.Barcode,
+            size,
+            color,
+            existing.Dimensions,
+            existing.CustomsCode);
+        UpdatedAt = DateTime.UtcNow;
+        return existing;
+    }
+
+    private void EnsureUniqueSku(string supplierSku, Guid? excludeVariantId = null)
+    {
+        if (_variants.Any(variant =>
+                (!excludeVariantId.HasValue || variant.Id != excludeVariantId.Value)
+                && variant.SupplierSku.Equals(supplierSku, StringComparison.OrdinalIgnoreCase)))
+        {
+            throw new DomainException($"Variant with SKU '{supplierSku}' already exists.");
+        }
     }
 
     public ProductMedia AddMedia(
@@ -417,6 +542,36 @@ public sealed class Product : AggregateRoot
     {
         EnsureEditable();
         ShippingProfile = shippingProfile;
+        UpdatedAt = DateTime.UtcNow;
+        RaiseDomainEvent(new ProductShippingProfileChangedDomainEvent(Id, SupplierId));
+    }
+
+    public void SetShippingProfileAsAdmin(ShippingProfile shippingProfile)
+    {
+        ShippingProfile = shippingProfile;
+        UpdatedAt = DateTime.UtcNow;
+        RaiseDomainEvent(new ProductShippingProfileChangedDomainEvent(Id, SupplierId));
+    }
+
+    public void ClearShippingProfile()
+    {
+        EnsureEditable();
+        ClearShippingProfileCore();
+    }
+
+    public void ClearShippingProfileAsAdmin()
+    {
+        ClearShippingProfileCore();
+    }
+
+    private void ClearShippingProfileCore()
+    {
+        if (ShippingProfile is null)
+        {
+            return;
+        }
+
+        ShippingProfile = null;
         UpdatedAt = DateTime.UtcNow;
         RaiseDomainEvent(new ProductShippingProfileChangedDomainEvent(Id, SupplierId));
     }

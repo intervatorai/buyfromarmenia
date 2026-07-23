@@ -120,6 +120,13 @@ public sealed class StockItem : AggregateRoot
         RaiseLowStockIfNeeded();
     }
 
+    public StockReservation? FindActiveReservationByReference(Guid referenceId)
+    {
+        return _reservations.FirstOrDefault(reservation =>
+            reservation.ReferenceId == referenceId
+            && reservation.Status == StockReservationStatus.Active);
+    }
+
     public void ExpireReservations(DateTime utcNow)
     {
         foreach (var reservation in _reservations.Where(reservation =>

@@ -105,6 +105,13 @@ namespace BFA.Persistence.Migrations
                     b.Property<Guid?>("ParentCategoryId")
                         .HasColumnType("uuid");
 
+                    b.Property<string>("SkuPrefix")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(4)
+                        .HasColumnType("character varying(4)")
+                        .HasDefaultValue("");
+
                     b.Property<int>("SortOrder")
                         .HasColumnType("integer");
 
@@ -117,6 +124,10 @@ namespace BFA.Persistence.Migrations
                         .HasColumnType("timestamp with time zone");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("SkuPrefix")
+                        .IsUnique()
+                        .HasFilter("\"SkuPrefix\" <> ''");
 
                     b.ToTable("categories", "catalog");
                 });
@@ -859,6 +870,26 @@ namespace BFA.Persistence.Migrations
                         .HasMaxLength(24)
                         .HasColumnType("character varying(24)");
 
+                    b.Property<decimal>("EstimatedWeightKg")
+                        .HasPrecision(18, 3)
+                        .HasColumnType("numeric(18,3)");
+
+                    b.Property<string>("ShippingAdjustmentReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<decimal>("ShippingFee")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<decimal>("ShippingFeeQuoted")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<decimal>("ShippingMarginPercent")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
                     b.Property<decimal>("Subtotal")
                         .HasPrecision(18, 2)
                         .HasColumnType("numeric(18,2)");
@@ -1162,6 +1193,136 @@ namespace BFA.Persistence.Migrations
                         .IsUnique();
 
                     b.ToTable("shipments", "shipping");
+                });
+
+            modelBuilder.Entity("BFA.Modules.Shipping.Domain.Aggregates.ShippingCountry", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("IsEnabled")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("IsoCode")
+                        .IsRequired()
+                        .HasMaxLength(2)
+                        .HasColumnType("character varying(2)");
+
+                    b.Property<string>("NameEn")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)");
+
+                    b.Property<string>("NameHy")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("IsEnabled");
+
+                    b.HasIndex("IsoCode")
+                        .IsUnique();
+
+                    b.HasIndex("SortOrder");
+
+                    b.ToTable("shipping_countries", "shipping");
+
+                    b.HasData(
+                        new
+                        {
+                            Id = new Guid("a1b2c3d4-e5f6-7890-abcd-ef1234567890"),
+                            CreatedAtUtc = new DateTime(2026, 7, 21, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsEnabled = true,
+                            IsoCode = "AM",
+                            NameEn = "Armenia",
+                            NameHy = "Հայաստան",
+                            SortOrder = 0,
+                            UpdatedAtUtc = new DateTime(2026, 7, 21, 0, 0, 0, 0, DateTimeKind.Utc)
+                        });
+                });
+
+            modelBuilder.Entity("BFA.Modules.Shipping.Domain.Aggregates.ShippingPricingSettings", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("ErrorMarginPercent")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<DateTime>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("shipping_pricing_settings", "shipping");
+
+                    b.HasData(
+                        new
+                        {
+                            Id = new Guid("b2c3d4e5-f6a7-8901-bcde-f12345678901"),
+                            ErrorMarginPercent = 10m,
+                            UpdatedAtUtc = new DateTime(2026, 7, 22, 0, 0, 0, 0, DateTimeKind.Utc)
+                        });
+                });
+
+            modelBuilder.Entity("BFA.Modules.Shipping.Domain.Aggregates.ShippingRateBracket", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("CountryIsoCode")
+                        .IsRequired()
+                        .HasMaxLength(2)
+                        .HasColumnType("character varying(2)");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Currency")
+                        .IsRequired()
+                        .HasMaxLength(3)
+                        .HasColumnType("character varying(3)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<decimal>("Price")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<DateTime>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<decimal>("WeightFromKg")
+                        .HasPrecision(18, 3)
+                        .HasColumnType("numeric(18,3)");
+
+                    b.Property<decimal>("WeightToKg")
+                        .HasPrecision(18, 3)
+                        .HasColumnType("numeric(18,3)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CountryIsoCode");
+
+                    b.HasIndex("CountryIsoCode", "IsActive");
+
+                    b.ToTable("shipping_rate_brackets", "shipping");
                 });
 
             modelBuilder.Entity("BFA.Modules.Shopping.Domain.Aggregates.ShoppingCart", b =>

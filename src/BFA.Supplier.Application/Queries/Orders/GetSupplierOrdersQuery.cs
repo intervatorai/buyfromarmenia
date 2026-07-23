@@ -1,4 +1,5 @@
 using BFA.Modules.Fulfillment.Domain.Repositories;
+using BFA.Modules.Shipping.Domain.Repositories;
 using MediatR;
 
 namespace BFA.Supplier.Application.Queries.Orders;
@@ -10,6 +11,8 @@ public record SupplierOrderListItemDto(
     Guid Id,
     Guid CustomerOrderId,
     string Status,
+    string? ShipmentStatus,
+    string? TrackingNumber,
     decimal Subtotal,
     string Currency,
     int ItemsCount,
@@ -19,10 +22,14 @@ public sealed class GetSupplierOrdersQueryHandler
     : IRequestHandler<GetSupplierOrdersQuery, IReadOnlyList<SupplierOrderListItemDto>>
 {
     private readonly ISupplierOrderRepository _supplierOrderRepository;
+    private readonly IShipmentRepository _shipmentRepository;
 
-    public GetSupplierOrdersQueryHandler(ISupplierOrderRepository supplierOrderRepository)
+    public GetSupplierOrdersQueryHandler(
+        ISupplierOrderRepository supplierOrderRepository,
+        IShipmentRepository shipmentRepository)
     {
         _supplierOrderRepository = supplierOrderRepository;
+        _shipmentRepository = shipmentRepository;
     }
 
     public async Task<IReadOnlyList<SupplierOrderListItemDto>> Handle(
@@ -33,13 +40,24 @@ public sealed class GetSupplierOrdersQueryHandler
             request.SupplierId,
             cancellationToken);
 
-        return orders.Select(order => new SupplierOrderListItemDto(
-            order.Id,
-            order.CustomerOrderId,
-            order.Status.ToString(),
-            order.Subtotal,
-            order.Currency,
-            order.Items.Count,
-            order.CreatedAtUtc)).ToList();
+        var shipments = await _shipmentRepository.GetAllAsync(cancellationToken);
+        var shipmentByCustomerOrderId = shipments
+            .GroupBy(shipment => shipment.CustomerOrderId)
+            .ToDictionary(group => group.Key, group => group.First());
+
+        return orders.Select(order =>
+        {
+            shipmentByCustomerOrderId.TryGetValue(order.CustomerOrderId, out var shipment);
+            return new SupplierOrderListItemDto(
+                order.Id,
+                order.CustomerOrderId,
+                order.Status.ToString(),
+                shipment?.Status.ToString(),
+                shipment?.TrackingNumber,
+                order.Subtotal,
+                order.Currency,
+                order.Items.Count,
+                order.CreatedAtUtc);
+        }).ToList();
     }
 }

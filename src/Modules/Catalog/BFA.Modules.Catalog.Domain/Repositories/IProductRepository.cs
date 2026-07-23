@@ -19,4 +19,9 @@ public interface IProductRepository
     Task AddAsync(Product product, CancellationToken cancellationToken = default);
     Task UpdateAsync(Product product, CancellationToken cancellationToken = default);
     Task DeleteAsync(Product product, CancellationToken cancellationToken = default);
+    Task<string> AllocateNextSkuAsync(string prefix, CancellationToken cancellationToken = default);
+    Task<bool> SupplierSkuExistsAsync(
+        string supplierSku,
+        Guid? excludeVariantId = null,
+        CancellationToken cancellationToken = default);
 }

@@ -1,5 +1,6 @@
 using BFA.BuildingBlocks.Application;
 using BFA.BuildingBlocks.Domain;
+using BFA.Modules.Catalog.Domain.Aggregates;
 using BFA.Modules.Catalog.Domain.Repositories;
 using BFA.Modules.Compliance.Domain.Services;
 using BFA.Modules.Fulfillment.Domain.Aggregates;
@@ -9,8 +10,12 @@ using BFA.Modules.Identity.Domain.Repositories;
 using BFA.Modules.Ordering.Domain.Aggregates;
 using BFA.Modules.Ordering.Domain.Repositories;
 using BFA.Modules.Payments.Domain.Aggregates;
+using BFA.Modules.Payments.Domain.Enums;
 using BFA.Modules.Payments.Domain.Repositories;
 using BFA.Modules.Shopping.Domain.Repositories;
+using BFA.Public.Application.Services.Payments;
+using BFA.Public.Application.Services.Shipping;
+using BFA.Public.Application.Services.Shopping;
 using MediatR;
 
 namespace BFA.Public.Application.Commands.Orders;
@@ -24,7 +29,10 @@ public record PlaceOrderCommand(
 
 public abstract record PlaceOrderOutcome;
 
-public sealed record PlaceOrderSuccess(Guid OrderId, string OrderNumber) : PlaceOrderOutcome;
+public sealed record PlaceOrderSuccess(
+    Guid OrderId,
+    string OrderNumber,
+    string? CheckoutUrl = null) : PlaceOrderOutcome;
 
 public sealed record PlaceOrderComplianceBlocked(string Message) : PlaceOrderOutcome;
 
@@ -43,6 +51,8 @@ public sealed class PlaceOrderCommandHandler
     private readonly IOutboxStore _outboxStore;
     private readonly IExportComplianceValidator _exportComplianceValidator;
     private readonly ICustomerDeliveryAddressRepository _deliveryAddressRepository;
+    private readonly IShippingQuoteService _shippingQuoteService;
+    private readonly IStripeCheckoutService _stripeCheckoutService;
 
     public PlaceOrderCommandHandler(
         IUnitOfWork unitOfWork,
@@ -54,7 +64,9 @@ public sealed class PlaceOrderCommandHandler
         IPaymentRepository paymentRepository,
         IOutboxStore outboxStore,
         IExportComplianceValidator exportComplianceValidator,
-        ICustomerDeliveryAddressRepository deliveryAddressRepository)
+        ICustomerDeliveryAddressRepository deliveryAddressRepository,
+        IShippingQuoteService shippingQuoteService,
+        IStripeCheckoutService stripeCheckoutService)
     {
         _unitOfWork = unitOfWork;
         _cartRepository = cartRepository;
@@ -66,6 +78,8 @@ public sealed class PlaceOrderCommandHandler
         _outboxStore = outboxStore;
         _exportComplianceValidator = exportComplianceValidator;
         _deliveryAddressRepository = deliveryAddressRepository;
+        _shippingQuoteService = shippingQuoteService;
+        _stripeCheckoutService = stripeCheckoutService;
     }
 
     public async Task<PlaceOrderOutcome> Handle(
@@ -91,8 +105,23 @@ public sealed class PlaceOrderCommandHandler
             return new PlaceOrderFailed();
         }
 
+        var removed = await CartCatalogSanitizer.RemoveUnavailableItemsAsync(
+            cart,
+            _productRepository,
+            cancellationToken);
+        if (removed > 0)
+        {
+            await _cartRepository.UpdateAsync(cart, cancellationToken);
+        }
+
+        if (cart.Items.Count == 0)
+        {
+            return new PlaceOrderFailed();
+        }
+
         var itemDrafts = new List<CustomerOrderItemDraft>();
         var productIds = new List<Guid>();
+        var productsById = new Dictionary<Guid, Product>();
         foreach (var cartItem in cart.Items)
         {
             var product = await _productRepository.GetByIdAsync(
@@ -100,11 +129,12 @@ public sealed class PlaceOrderCommandHandler
                 cancellationToken);
             var variant = product?.Variants.FirstOrDefault(v =>
                 v.Id == cartItem.ProductVariantId);
-            if (variant is null)
+            if (product is null || variant is null)
             {
                 return new PlaceOrderFailed();
             }
 
+            productsById[product.Id] = product;
             productIds.Add(cartItem.ProductId);
 
             var stock = await _stockItemRepository.GetByVariantIdAsync(
@@ -140,18 +170,39 @@ public sealed class PlaceOrderCommandHandler
             return new PlaceOrderComplianceBlocked(message);
         }
 
-        await _unitOfWork.BeginTransactionAsync(cancellationToken);
+        Modules.Shipping.Domain.Services.ShippingQuoteResult shippingQuote;
+        try
+        {
+            var estimatedWeight = CartShippingWeightEstimator.EstimateWeightKg(cart, productsById);
+            shippingQuote = await _shippingQuoteService.QuoteAsync(
+                shippingAddress.CountryCode,
+                estimatedWeight,
+                cancellationToken);
+        }
+        catch (DomainException)
+        {
+            return new PlaceOrderFailed();
+        }
 
+        var useStripe = _stripeCheckoutService.IsEnabled;
+        CustomerOrder order;
+        Payment payment;
+
+        await _unitOfWork.BeginTransactionAsync(cancellationToken);
         try
         {
             var orderNumber = GenerateOrderNumber();
-            var order = new CustomerOrder(
+            order = new CustomerOrder(
                 request.CartId,
                 orderNumber,
                 request.CustomerEmail,
                 request.CustomerFullName,
                 shippingAddress,
                 itemDrafts,
+                shippingQuote.EstimatedWeightKg,
+                shippingQuote.ShippingFee,
+                shippingQuote.ErrorMarginPercent,
+                shippingQuote.ShippingFee,
                 request.CustomerUserId);
 
             foreach (var item in order.Items)
@@ -165,57 +216,104 @@ public sealed class PlaceOrderCommandHandler
                     return new PlaceOrderFailed();
                 }
 
-                var reservation = stock.Reserve(
+                stock.Reserve(
                     order.Id,
                     item.Quantity,
                     DateTime.UtcNow.AddHours(1));
-                stock.ConfirmReservation(reservation.Id);
+
+                if (!useStripe)
+                {
+                    var reservation = stock.FindActiveReservationByReference(order.Id)
+                        ?? throw new DomainException("Stock reservation was not created.");
+                    stock.ConfirmReservation(reservation.Id);
+                }
+
                 await _stockItemRepository.UpdateAsync(stock, cancellationToken);
             }
 
-            var payment = new Payment(order.Id, order.Subtotal, order.Currency);
-            payment.Capture();
-            order.MarkPaymentPaid();
-            order.MarkConfirmed();
+            payment = new Payment(
+                order.Id,
+                order.Total,
+                order.Currency,
+                useStripe ? PaymentProvider.Stripe : PaymentProvider.Stub);
+
+            if (!useStripe)
+            {
+                payment.Capture();
+                order.MarkPaymentPaid();
+                order.MarkConfirmed();
+
+                foreach (var group in order.Items.GroupBy(item => item.SupplierId))
+                {
+                    var supplierOrder = new SupplierOrder(
+                        order.Id,
+                        group.Key,
+                        order.Currency,
+                        group.Select(item => new SupplierOrderItemDraft(
+                            item.ProductId,
+                            item.ProductVariantId,
+                            item.ProductName,
+                            item.SupplierSku,
+                            item.UnitPrice,
+                            item.Currency,
+                            item.Quantity)).ToList());
+
+                    await _supplierOrderRepository.AddAsync(supplierOrder, cancellationToken);
+                }
+            }
 
             await _customerOrderRepository.AddAsync(order, cancellationToken);
             await _paymentRepository.AddAsync(payment, cancellationToken);
 
-            var supplierGroups = order.Items.GroupBy(item => item.SupplierId);
-            foreach (var group in supplierGroups)
-            {
-                var supplierOrder = new SupplierOrder(
-                    order.Id,
-                    group.Key,
-                    order.Currency,
-                    group.Select(item => new SupplierOrderItemDraft(
-                        item.ProductId,
-                        item.ProductVariantId,
-                        item.ProductName,
-                        item.SupplierSku,
-                        item.UnitPrice,
-                        item.Currency,
-                        item.Quantity)).ToList());
-
-                await _supplierOrderRepository.AddAsync(supplierOrder, cancellationToken);
-            }
-
             cart.Clear();
             await _cartRepository.UpdateAsync(cart, cancellationToken);
             await _unitOfWork.CommitTransactionAsync(cancellationToken);
-
-            await _outboxStore.EnqueueAsync(
-                IntegrationEventTypes.OrderPlaced,
-                $"{{\"orderId\":\"{order.Id}\"}}",
-                cancellationToken);
-
-            return new PlaceOrderSuccess(order.Id, order.OrderNumber);
         }
         catch
         {
             await _unitOfWork.RollbackTransactionAsync(cancellationToken);
             throw;
         }
+
+        if (!useStripe)
+        {
+            await _outboxStore.EnqueueAsync(
+                IntegrationEventTypes.OrderPlaced,
+                $"{{\"orderId\":\"{order.Id}\"}}",
+                cancellationToken);
+            return new PlaceOrderSuccess(order.Id, order.OrderNumber);
+        }
+
+        var lineItems = order.Items
+            .Select(item => new StripeCheckoutLineItem(
+                item.ProductName,
+                item.UnitPrice,
+                item.Quantity))
+            .ToList();
+        if (order.ShippingFee > 0)
+        {
+            lineItems.Add(new StripeCheckoutLineItem("Shipping", order.ShippingFee, 1));
+        }
+
+        var session = await _stripeCheckoutService.CreateCheckoutSessionAsync(
+            new StripeCheckoutSessionRequest(
+                order.Id,
+                payment.Id,
+                order.OrderNumber,
+                order.CustomerEmail,
+                order.Total,
+                order.Currency,
+                lineItems),
+            cancellationToken);
+
+        var trackedPayment = await _paymentRepository.GetByCustomerOrderIdForUpdateAsync(
+            order.Id,
+            cancellationToken)
+            ?? payment;
+        trackedPayment.AttachExternalReference(session.SessionId);
+        await _paymentRepository.UpdateAsync(trackedPayment, cancellationToken);
+
+        return new PlaceOrderSuccess(order.Id, order.OrderNumber, session.CheckoutUrl);
     }
 
     private static string GenerateOrderNumber()

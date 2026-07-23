@@ -1,4 +1,5 @@
 using BFA.BuildingBlocks.Application;
+using BFA.BuildingBlocks.Domain;
 using BFA.Modules.Catalog.Domain;
 using BFA.Modules.Catalog.Domain.Aggregates;
 using BFA.Modules.Catalog.Domain.Repositories;
@@ -12,7 +13,8 @@ public record CreateCategoryCommand(
     string? Description = null,
     int SortOrder = 0,
     Guid? ParentCategoryId = null,
-    string LanguageCode = "en") : IRequest<Guid>;
+    string LanguageCode = "en",
+    string? SkuPrefix = null) : IRequest<Guid>;
 
 public sealed class CreateCategoryCommandHandler : IRequestHandler<CreateCategoryCommand, Guid>
 {
@@ -35,7 +37,8 @@ public sealed class CreateCategoryCommandHandler : IRequestHandler<CreateCategor
             request.LanguageCode,
             request.ParentCategoryId,
             request.SortOrder,
-            request.Description);
+            request.Description,
+            request.SkuPrefix);
 
         await _categoryRepository.AddAsync(category, cancellationToken);
 
@@ -58,7 +61,8 @@ public record UpdateCategoryCommand(
     string? Description = null,
     int SortOrder = 0,
     Guid? ParentCategoryId = null,
-    string LanguageCode = "en") : IRequest<bool>;
+    string LanguageCode = "en",
+    string? SkuPrefix = null) : IRequest<bool>;
 
 public sealed class UpdateCategoryCommandHandler : IRequestHandler<UpdateCategoryCommand, bool>
 {
@@ -89,6 +93,17 @@ public sealed class UpdateCategoryCommandHandler : IRequestHandler<UpdateCategor
             request.Slug,
             request.Description);
         category.MoveTo(request.ParentCategoryId, request.SortOrder);
+
+        // Always apply when the client sends a prefix (edit form includes the field).
+        if (request.SkuPrefix is not null)
+        {
+            if (string.IsNullOrWhiteSpace(request.SkuPrefix))
+            {
+                throw new DomainException("SKU prefix is required (2–4 letters).");
+            }
+
+            category.SetSkuPrefix(request.SkuPrefix);
+        }
 
         await _categoryRepository.UpdateAsync(category, cancellationToken);
 
@@ -186,7 +201,11 @@ public sealed class ActivateCategoryCommandHandler : IRequestHandler<ActivateCat
 
 public record SeedDefaultCategoriesCommand() : IRequest<SeedDefaultCategoriesResult>;
 
-public record SeedDefaultCategoriesResult(int Added, int Skipped, IReadOnlyList<string> AddedSlugs);
+public record SeedDefaultCategoriesResult(
+    int Added,
+    int Skipped,
+    int PrefixesUpdated,
+    IReadOnlyList<string> AddedSlugs);
 
 public sealed class SeedDefaultCategoriesCommandHandler
     : IRequestHandler<SeedDefaultCategoriesCommand, SeedDefaultCategoriesResult>
@@ -208,18 +227,32 @@ public sealed class SeedDefaultCategoriesCommandHandler
     {
         var added = 0;
         var skipped = 0;
+        var prefixesUpdated = 0;
         var addedSlugs = new List<string>();
         var existingCategories = await _categoryRepository.GetAllAsync(cancellationToken);
         var sortOrder = existingCategories.Count > 0
             ? existingCategories.Max(category => category.SortOrder) + 1
             : 0;
 
-        foreach (var (name, slug, description) in DefaultCatalogCategories.All)
+        foreach (var (name, slug, description, skuPrefix) in DefaultCatalogCategories.All)
         {
             var existing = await _categoryRepository.GetBySlugAsync(slug, "en", cancellationToken);
             if (existing is not null)
             {
                 skipped++;
+                if (string.IsNullOrWhiteSpace(existing.SkuPrefix))
+                {
+                    var tracked = await _categoryRepository.GetByIdForUpdateAsync(
+                        existing.Id,
+                        cancellationToken);
+                    if (tracked is not null && string.IsNullOrWhiteSpace(tracked.SkuPrefix))
+                    {
+                        tracked.SetSkuPrefix(skuPrefix);
+                        await _categoryRepository.UpdateAsync(tracked, cancellationToken);
+                        prefixesUpdated++;
+                    }
+                }
+
                 continue;
             }
 
@@ -228,14 +261,15 @@ public sealed class SeedDefaultCategoriesCommandHandler
                 slug,
                 "en",
                 sortOrder: sortOrder++,
-                description: description);
+                description: description,
+                skuPrefix: skuPrefix);
 
             await _categoryRepository.AddAsync(category, cancellationToken);
             addedSlugs.Add(slug);
             added++;
         }
 
-        if (added > 0)
+        if (added > 0 || prefixesUpdated > 0)
         {
             await _auditLogger.WriteAsync(
                 "Admin",
@@ -243,10 +277,11 @@ public sealed class SeedDefaultCategoriesCommandHandler
                 "DefaultCategoriesSeeded",
                 "Category",
                 null,
-                detailsJson: System.Text.Json.JsonSerializer.Serialize(new { added, skipped, addedSlugs }),
+                detailsJson: System.Text.Json.JsonSerializer.Serialize(
+                    new { added, skipped, prefixesUpdated, addedSlugs }),
                 cancellationToken: cancellationToken);
         }
 
-        return new SeedDefaultCategoriesResult(added, skipped, addedSlugs);
+        return new SeedDefaultCategoriesResult(added, skipped, prefixesUpdated, addedSlugs);
     }
 }

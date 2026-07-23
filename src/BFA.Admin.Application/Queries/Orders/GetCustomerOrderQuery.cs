@@ -1,5 +1,6 @@
 using BFA.Modules.Fulfillment.Domain.Repositories;
 using BFA.Modules.Ordering.Domain.Repositories;
+using BFA.Modules.Shipping.Domain.Repositories;
 using MediatR;
 
 namespace BFA.Admin.Application.Queries.Orders;
@@ -15,11 +16,18 @@ public record AdminCustomerOrderDetailDto(
     string PaymentStatus,
     string FulfillmentStatus,
     decimal Subtotal,
+    decimal EstimatedWeightKg,
+    decimal ShippingFeeQuoted,
+    decimal ShippingMarginPercent,
+    decimal ShippingFee,
+    decimal Total,
+    string? ShippingAdjustmentReason,
     string Currency,
     DateTime CreatedAtUtc,
     AdminOrderAddressDto ShippingAddress,
     IReadOnlyList<AdminOrderItemDto> Items,
-    IReadOnlyList<AdminSupplierOrderDto> SupplierOrders);
+    IReadOnlyList<AdminSupplierOrderDto> SupplierOrders,
+    AdminOrderShipmentDto? Shipment);
 
 public record AdminOrderAddressDto(
     string CountryCode,
@@ -58,18 +66,30 @@ public record AdminSupplierOrderItemDto(
     string Currency,
     int Quantity);
 
+public record AdminOrderShipmentDto(
+    Guid Id,
+    string ReferenceNumber,
+    string Carrier,
+    string TrackingNumber,
+    string Status,
+    DateTime CreatedAtUtc,
+    DateTime UpdatedAtUtc);
+
 public sealed class GetCustomerOrderQueryHandler
     : IRequestHandler<GetCustomerOrderQuery, AdminCustomerOrderDetailDto?>
 {
     private readonly ICustomerOrderRepository _customerOrderRepository;
     private readonly ISupplierOrderRepository _supplierOrderRepository;
+    private readonly IShipmentRepository _shipmentRepository;
 
     public GetCustomerOrderQueryHandler(
         ICustomerOrderRepository customerOrderRepository,
-        ISupplierOrderRepository supplierOrderRepository)
+        ISupplierOrderRepository supplierOrderRepository,
+        IShipmentRepository shipmentRepository)
     {
         _customerOrderRepository = customerOrderRepository;
         _supplierOrderRepository = supplierOrderRepository;
+        _shipmentRepository = shipmentRepository;
     }
 
     public async Task<AdminCustomerOrderDetailDto?> Handle(
@@ -85,6 +105,9 @@ public sealed class GetCustomerOrderQueryHandler
         var supplierOrders = await _supplierOrderRepository.GetByCustomerOrderIdAsync(
             order.Id,
             cancellationToken);
+        var shipment = await _shipmentRepository.GetByCustomerOrderIdAsync(
+            order.Id,
+            cancellationToken);
 
         return new AdminCustomerOrderDetailDto(
             order.Id,
@@ -95,6 +118,12 @@ public sealed class GetCustomerOrderQueryHandler
             order.PaymentStatus.ToString(),
             order.FulfillmentStatus.ToString(),
             order.Subtotal,
+            order.EstimatedWeightKg,
+            order.ShippingFeeQuoted,
+            order.ShippingMarginPercent,
+            order.ShippingFee,
+            order.Total,
+            order.ShippingAdjustmentReason,
             order.Currency,
             order.CreatedAtUtc,
             new AdminOrderAddressDto(
@@ -128,6 +157,16 @@ public sealed class GetCustomerOrderQueryHandler
                     item.SupplierSku,
                     item.UnitPrice,
                     item.Currency,
-                    item.Quantity)).ToList())).ToList());
+                    item.Quantity)).ToList())).ToList(),
+            shipment is null
+                ? null
+                : new AdminOrderShipmentDto(
+                    shipment.Id,
+                    shipment.ReferenceNumber,
+                    shipment.Carrier.ToString(),
+                    shipment.TrackingNumber,
+                    shipment.Status.ToString(),
+                    shipment.CreatedAtUtc,
+                    shipment.UpdatedAtUtc));
     }
 }

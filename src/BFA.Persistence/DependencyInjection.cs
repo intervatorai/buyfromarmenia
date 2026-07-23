@@ -47,6 +47,9 @@ public static class DependencyInjection
         services.AddScoped<IInboundShipmentRepository, InboundShipmentRepository>();
         services.AddScoped<IConsolidationRepository, ConsolidationRepository>();
         services.AddScoped<IShipmentRepository, ShipmentRepository>();
+        services.AddScoped<IShippingCountryRepository, ShippingCountryRepository>();
+        services.AddScoped<IShippingRateBracketRepository, ShippingRateBracketRepository>();
+        services.AddScoped<IShippingPricingSettingsRepository, ShippingPricingSettingsRepository>();
         services.AddScoped<ISupplierSettlementRepository, SupplierSettlementRepository>();
         services.AddScoped<IPayoutRepository, PayoutRepository>();
         services.AddScoped<IUnitOfWork, UnitOfWork>();

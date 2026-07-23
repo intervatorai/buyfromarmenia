@@ -69,7 +69,9 @@ html[data-lang="hy"] body {
 html[data-lang="hy"] .hero h1,
 html[data-lang="hy"] .section-heading h2,
 html[data-lang="hy"] .how h2,
-html[data-lang="hy"] .seller h2 {
+html[data-lang="hy"] .seller h2,
+html[data-lang="hy"] .account-hero h1,
+html[data-lang="hy"] .account-panel-header h1 {
   font-family: var(--font-noto-armenian), sans-serif;
   font-weight: 700;
   line-height: 1.18;

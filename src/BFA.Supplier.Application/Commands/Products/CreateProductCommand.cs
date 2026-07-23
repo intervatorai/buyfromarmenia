@@ -39,13 +39,16 @@ public record CreateProductCommand(
 public class CreateProductCommandHandler : IRequestHandler<CreateProductCommand, Guid?>
 {
     private readonly IProductRepository _productRepository;
+    private readonly ICategoryRepository _categoryRepository;
     private readonly IProductSearchKeywordGenerator _keywordGenerator;
 
     public CreateProductCommandHandler(
         IProductRepository productRepository,
+        ICategoryRepository categoryRepository,
         IProductSearchKeywordGenerator keywordGenerator)
     {
         _productRepository = productRepository;
+        _categoryRepository = categoryRepository;
         _keywordGenerator = keywordGenerator;
     }
 
@@ -87,15 +90,19 @@ public class CreateProductCommandHandler : IRequestHandler<CreateProductCommand,
                 request.UsageInstructions);
         }
 
-        if (!string.IsNullOrWhiteSpace(request.SupplierSku) && request.VariantWeight.HasValue)
-        {
-            product.AddVariant(
-                request.SupplierSku,
-                request.VariantWeight.Value,
-                request.CountryOfOrigin,
-                size: request.VariantSize,
-                color: request.VariantColor);
-        }
+        var weight = request.VariantWeight is > 0 ? request.VariantWeight.Value : 0.5m;
+        var sku = await ProductSkuAssigner.ResolveAsync(
+            request.SupplierSku,
+            request.CategoryId,
+            _categoryRepository,
+            _productRepository,
+            cancellationToken);
+        product.AddVariant(
+            sku,
+            weight,
+            request.CountryOfOrigin,
+            size: request.VariantSize,
+            color: request.VariantColor);
 
         if (!string.IsNullOrWhiteSpace(request.ImageStorageKey))
         {

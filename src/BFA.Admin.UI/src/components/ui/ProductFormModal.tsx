@@ -13,6 +13,7 @@ type SupplierOption = {
 type CategoryOption = {
   id: string;
   name: string;
+  skuPrefix?: string;
 };
 
 type ProductTranslationSeed = {
@@ -20,6 +21,15 @@ type ProductTranslationSeed = {
   name: string;
   shortDescription: string;
   description: string;
+};
+
+type ProductVariantSeed = {
+  id: string;
+  supplierSku: string;
+  size?: string | null;
+  color?: string | null;
+  weight: number;
+  countryOfOrigin: string;
 };
 
 type ProductSeed = {
@@ -33,6 +43,7 @@ type ProductSeed = {
   status?: string;
   tag?: string | null;
   translations?: ProductTranslationSeed[];
+  variants?: ProductVariantSeed[];
 };
 
 type LocaleFields = {
@@ -80,6 +91,9 @@ export function ProductFormModal({ open, productId, onClose, onSaved }: ProductF
   const [categoryId, setCategoryId] = useState("");
   const [supplierSku, setSupplierSku] = useState("");
   const [variantWeight, setVariantWeight] = useState("0.5");
+  const [variantSize, setVariantSize] = useState("");
+  const [variantColor, setVariantColor] = useState("");
+  const [countryOfOrigin, setCountryOfOrigin] = useState("AM");
   const [imageStorageKey, setImageStorageKey] = useState("");
   const [imagePreviewUrl, setImagePreviewUrl] = useState("");
   const [isUploadingImage, setIsUploadingImage] = useState(false);
@@ -125,6 +139,14 @@ export function ProductFormModal({ open, productId, onClose, onSaved }: ProductF
           setCategoryId(product.categoryId ?? "");
           setStatus(product.status ?? "");
           setTag(product.tag && product.tag !== "None" ? product.tag : "None");
+          const firstVariant = product.variants?.[0];
+          setSupplierSku(firstVariant?.supplierSku ?? "");
+          setVariantWeight(
+            firstVariant?.weight != null ? String(firstVariant.weight) : "0.5",
+          );
+          setVariantSize(firstVariant?.size ?? "");
+          setVariantColor(firstVariant?.color ?? "");
+          setCountryOfOrigin(firstVariant?.countryOfOrigin ?? "AM");
         } else {
           setSupplierId(supplierList[0]?.id ?? "");
           setEn(EMPTY_LOCALE);
@@ -134,6 +156,9 @@ export function ProductFormModal({ open, productId, onClose, onSaved }: ProductF
           setCategoryId("");
           setSupplierSku("");
           setVariantWeight("0.5");
+          setVariantSize("");
+          setVariantColor("");
+          setCountryOfOrigin("AM");
           setImageStorageKey("");
           setImagePreviewUrl("");
           setIsUploadingImage(false);
@@ -210,8 +235,11 @@ export function ProductFormModal({ open, productId, onClose, onSaved }: ProductF
             price: Number(price),
             currency,
             categoryId: categoryId || null,
-            supplierSku: supplierSku || null,
-            variantWeight: supplierSku ? Number(variantWeight) : null,
+            supplierSku: supplierSku.trim() || null,
+            variantWeight: Number(variantWeight) || 0.5,
+            variantSize: variantSize.trim() || null,
+            variantColor: variantColor.trim() || null,
+            countryOfOrigin: countryOfOrigin.trim() || "AM",
             imageStorageKey: imageStorageKey || null,
             publishImmediately,
             tag,
@@ -223,6 +251,7 @@ export function ProductFormModal({ open, productId, onClose, onSaved }: ProductF
       onClose();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Failed to save product.");
+    } finally {
       setIsSaving(false);
     }
   }
@@ -409,12 +438,21 @@ export function ProductFormModal({ open, productId, onClose, onSaved }: ProductF
             <>
               <div className="form-row-2">
                 <div className="form-field">
-                  <label htmlFor="product-sku">Default SKU (optional)</label>
+                  <label htmlFor="product-sku">Default SKU</label>
                   <input
                     id="product-sku"
                     value={supplierSku}
+                    placeholder={
+                      categories.find((c) => c.id === categoryId)?.skuPrefix
+                        ? `${categories.find((c) => c.id === categoryId)?.skuPrefix}-####`
+                        : "Auto (e.g. JW-0001)"
+                    }
                     onChange={(e) => setSupplierSku(e.target.value)}
                   />
+                  <p className="form-hint">
+                    Leave empty to auto-generate. Manage more variants after create via ▸
+                    on the products list.
+                  </p>
                 </div>
                 <div className="form-field">
                   <label htmlFor="product-weight">Variant weight (kg)</label>
@@ -428,6 +466,7 @@ export function ProductFormModal({ open, productId, onClose, onSaved }: ProductF
                   />
                 </div>
               </div>
+
               <div className="form-field">
                 <label htmlFor="product-image">Primary image</label>
                 <input
@@ -478,7 +517,12 @@ export function ProductFormModal({ open, productId, onClose, onSaved }: ProductF
                 Publish immediately (skip supplier review queue)
               </label>
             </>
-          ) : null}
+          ) : (
+            <p className="form-hint">
+              Variants and shipping are managed from the product row expand (▸) or the
+              panel on this page.
+            </p>
+          )}
         </form>
       ) : null}
     </Modal>

@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { FormEvent, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { PublicSiteLayout } from "@/components/layout/PublicSiteLayout";
 import { useAuth } from "@/components/providers/AuthProvider";
 import { useLanguage } from "@/components/providers/LanguageProvider";
@@ -10,6 +11,12 @@ import { ApiError } from "@/lib/api";
 export default function LoginPage() {
   const { translate } = useLanguage();
   const { login } = useAuth();
+  const searchParams = useSearchParams();
+  const returnTo = searchParams.get("returnTo");
+  const registerHref =
+    returnTo && returnTo.startsWith("/")
+      ? `/account/register?returnTo=${encodeURIComponent(returnTo)}`
+      : "/account/register";
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -75,7 +82,7 @@ export default function LoginPage() {
 
           <p className="auth-switch">
             {translate("noAccountYet")}{" "}
-            <Link href="/account/register">{translate("createAccount")}</Link>
+            <Link href={registerHref}>{translate("createAccount")}</Link>
           </p>
         </div>
       </section>

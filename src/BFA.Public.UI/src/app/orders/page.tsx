@@ -72,6 +72,7 @@ export default function OrdersPage() {
                 </div>
                 <div className="order-card-meta">
                   <span className="order-status">{order.status}</span>
+                  <span className="order-status">{order.paymentStatus}</span>
                   <strong>{formatPrice(order.subtotal, order.currency)}</strong>
                 </div>
               </Link>

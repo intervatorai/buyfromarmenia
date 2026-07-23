@@ -47,6 +47,9 @@ public sealed class StockReservationConfiguration
     {
         builder.ToTable("stock_reservations", "inventory");
         builder.HasKey(reservation => reservation.Id);
+        // Client-generated Guids: without this, EF treats new reservations as Modified
+        // and issues UPDATE 0 rows → DbUpdateConcurrencyException on place-order.
+        builder.Property(reservation => reservation.Id).ValueGeneratedNever();
 
         builder.Property(reservation => reservation.Status)
             .HasConversion<string>()

@@ -12,7 +12,8 @@ public record AdminCategoryDto(
     string Description,
     string Status,
     int SortOrder,
-    Guid? ParentCategoryId);
+    Guid? ParentCategoryId,
+    string SkuPrefix);
 
 public sealed class GetAdminCategoriesQueryHandler
     : IRequestHandler<GetAdminCategoriesQuery, IReadOnlyList<AdminCategoryDto>>
@@ -41,7 +42,8 @@ public sealed class GetAdminCategoriesQueryHandler
                     translation?.Description ?? string.Empty,
                     category.Status.ToString(),
                     category.SortOrder,
-                    category.ParentCategoryId);
+                    category.ParentCategoryId,
+                    category.SkuPrefix);
             })
             .OrderBy(category => category.SortOrder)
             .ThenBy(category => category.Name)

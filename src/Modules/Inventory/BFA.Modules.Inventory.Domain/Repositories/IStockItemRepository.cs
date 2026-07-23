@@ -22,4 +22,5 @@ public interface IStockItemRepository
 
     Task AddAsync(StockItem stockItem, CancellationToken cancellationToken = default);
     Task UpdateAsync(StockItem stockItem, CancellationToken cancellationToken = default);
+    Task DeleteAsync(StockItem stockItem, CancellationToken cancellationToken = default);
 }

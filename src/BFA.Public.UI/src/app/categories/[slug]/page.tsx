@@ -11,7 +11,7 @@ export default async function CategoryProductsPage({
   const { slug } = await params;
 
   return (
-    <Suspense fallback={<p style={{ padding: 48, textAlign: "center" }}>Loading...</p>}>
+    <Suspense fallback={null}>
       <ProductsCatalog initialCategorySlug={slug} />
     </Suspense>
   );

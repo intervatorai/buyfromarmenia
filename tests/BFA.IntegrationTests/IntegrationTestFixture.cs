@@ -42,7 +42,7 @@ public sealed class IntegrationTestFixture : IAsyncLifetime
         var services = new ServiceCollection();
         services.AddLogging(builder => builder.AddConsole().SetMinimumLevel(LogLevel.Warning));
         services.AddPersistence(configuration);
-        services.AddPublicApplication();
+        services.AddPublicApplication(configuration);
         services.AddInfrastructure();
         services.AddAuthServices();
 

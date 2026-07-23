@@ -2,7 +2,6 @@ using BFA.BuildingBlocks.Application;
 using BFA.Modules.Catalog.Domain;
 using BFA.Modules.Catalog.Domain.Enums;
 using BFA.Modules.Catalog.Domain.Repositories;
-using BFA.Modules.Inventory.Domain.Repositories;
 using BFA.Modules.Shopping.Domain.Aggregates;
 using BFA.Modules.Shopping.Domain.Repositories;
 using MediatR;
@@ -20,18 +19,15 @@ public sealed class AddCartItemCommandHandler
 {
     private readonly IShoppingCartRepository _cartRepository;
     private readonly IProductRepository _productRepository;
-    private readonly IStockItemRepository _stockItemRepository;
     private readonly IMediaUrlResolver _mediaUrlResolver;
 
     public AddCartItemCommandHandler(
         IShoppingCartRepository cartRepository,
         IProductRepository productRepository,
-        IStockItemRepository stockItemRepository,
         IMediaUrlResolver mediaUrlResolver)
     {
         _cartRepository = cartRepository;
         _productRepository = productRepository;
-        _stockItemRepository = stockItemRepository;
         _mediaUrlResolver = mediaUrlResolver;
     }
 
@@ -57,19 +53,10 @@ public sealed class AddCartItemCommandHandler
             return false;
         }
 
-        var stock = await _stockItemRepository.GetByVariantIdAsync(
-            request.ProductVariantId,
-            cancellationToken);
+        // Stock is validated at checkout; cart may hold items even when on-hand is zero.
         var cart = await _cartRepository.GetByIdForUpdateAsync(
             request.CartId,
             cancellationToken);
-        var currentQuantity = cart?.Items.FirstOrDefault(item =>
-            item.ProductVariantId == request.ProductVariantId)?.Quantity ?? 0;
-
-        if (stock is null || stock.Available < currentQuantity + request.Quantity)
-        {
-            return false;
-        }
 
         var isNew = cart is null;
         cart ??= new ShoppingCart(request.CartId);
@@ -112,14 +99,10 @@ public sealed class ChangeCartItemQuantityCommandHandler
     : IRequestHandler<ChangeCartItemQuantityCommand, bool>
 {
     private readonly IShoppingCartRepository _cartRepository;
-    private readonly IStockItemRepository _stockItemRepository;
 
-    public ChangeCartItemQuantityCommandHandler(
-        IShoppingCartRepository cartRepository,
-        IStockItemRepository stockItemRepository)
+    public ChangeCartItemQuantityCommandHandler(IShoppingCartRepository cartRepository)
     {
         _cartRepository = cartRepository;
-        _stockItemRepository = stockItemRepository;
     }
 
     public async Task<bool> Handle(
@@ -136,14 +119,6 @@ public sealed class ChangeCartItemQuantityCommandHandler
             cancellationToken);
         var item = cart?.Items.FirstOrDefault(item => item.Id == request.ItemId);
         if (cart is null || item is null)
-        {
-            return false;
-        }
-
-        var stock = await _stockItemRepository.GetByVariantIdAsync(
-            item.ProductVariantId,
-            cancellationToken);
-        if (stock is null || stock.Available < request.Quantity)
         {
             return false;
         }

@@ -24,6 +24,27 @@ public sealed class PaymentRepository : IPaymentRepository
                 cancellationToken);
     }
 
+    public Task<Payment?> GetByCustomerOrderIdForUpdateAsync(
+        Guid customerOrderId,
+        CancellationToken cancellationToken = default)
+    {
+        return _dbContext.Payments
+            .FirstOrDefaultAsync(
+                payment => payment.CustomerOrderId == customerOrderId,
+                cancellationToken);
+    }
+
+    public Task<Payment?> GetByExternalReferenceForUpdateAsync(
+        string externalReference,
+        CancellationToken cancellationToken = default)
+    {
+        var normalized = externalReference.Trim();
+        return _dbContext.Payments
+            .FirstOrDefaultAsync(
+                payment => payment.ExternalReference == normalized,
+                cancellationToken);
+    }
+
     public async Task AddAsync(Payment payment, CancellationToken cancellationToken = default)
     {
         await _dbContext.Payments.AddAsync(payment, cancellationToken);

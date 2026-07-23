@@ -17,6 +17,8 @@ const navItems = [
   { href: "/returns", label: "Returns" },
   { href: "/settings/audit", label: "Audit" },
   { href: "/settings/compliance", label: "Compliance" },
+  { href: "/settings/shipping-countries", label: "Shipping countries" },
+  { href: "/settings/shipping-rates", label: "Shipping rates" },
   { href: "/settings/users", label: "Users" },
 ];
 

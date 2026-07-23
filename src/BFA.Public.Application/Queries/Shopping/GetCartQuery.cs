@@ -1,5 +1,7 @@
+using BFA.Modules.Catalog.Domain.Repositories;
 using BFA.Modules.Shopping.Domain.Aggregates;
 using BFA.Modules.Shopping.Domain.Repositories;
+using BFA.Public.Application.Services.Shopping;
 using MediatR;
 
 namespace BFA.Public.Application.Queries.Shopping;
@@ -12,7 +14,8 @@ public record PublicCartDto(
     IReadOnlyList<Guid> WishlistProductIds,
     int TotalQuantity,
     decimal Subtotal,
-    string Currency);
+    string Currency,
+    int RemovedUnavailableItems = 0);
 
 public record PublicCartItemDto(
     Guid Id,
@@ -30,23 +33,41 @@ public sealed class GetCartQueryHandler
     : IRequestHandler<GetCartQuery, PublicCartDto>
 {
     private readonly IShoppingCartRepository _cartRepository;
+    private readonly IProductRepository _productRepository;
 
-    public GetCartQueryHandler(IShoppingCartRepository cartRepository)
+    public GetCartQueryHandler(
+        IShoppingCartRepository cartRepository,
+        IProductRepository productRepository)
     {
         _cartRepository = cartRepository;
+        _productRepository = productRepository;
     }
 
     public async Task<PublicCartDto> Handle(
         GetCartQuery request,
         CancellationToken cancellationToken)
     {
-        var cart = await _cartRepository.GetByIdAsync(
+        var cart = await _cartRepository.GetByIdForUpdateAsync(
             request.CartId,
             cancellationToken);
-        return Map(cart ?? new ShoppingCart(request.CartId));
+        if (cart is null)
+        {
+            return Map(new ShoppingCart(request.CartId));
+        }
+
+        var removed = await CartCatalogSanitizer.RemoveUnavailableItemsAsync(
+            cart,
+            _productRepository,
+            cancellationToken);
+        if (removed > 0)
+        {
+            await _cartRepository.UpdateAsync(cart, cancellationToken);
+        }
+
+        return Map(cart, removed);
     }
 
-    public static PublicCartDto Map(ShoppingCart cart)
+    public static PublicCartDto Map(ShoppingCart cart, int removedUnavailableItems = 0)
     {
         var items = cart.Items.Select(item => new PublicCartItemDto(
             item.Id,
@@ -70,6 +91,7 @@ public sealed class GetCartQueryHandler
             cart.WishlistItems.Select(item => item.ProductId).ToList(),
             items.Sum(item => item.Quantity),
             items.Sum(item => item.LineTotal),
-            currency);
+            currency,
+            removedUnavailableItems);
     }
 }

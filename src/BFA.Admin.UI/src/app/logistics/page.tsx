@@ -32,6 +32,14 @@ const NEXT_STATUS: Record<string, string> = {
   OutForDelivery: "Delivered",
 };
 
+const SHIPMENT_STATUSES = [
+  "Created",
+  "PickedUp",
+  "InTransit",
+  "OutForDelivery",
+  "Delivered",
+] as const;
+
 export default function LogisticsPage() {
   const [shipments, setShipments] = useState<Shipment[]>([]);
   const [sealedConsolidations, setSealedConsolidations] = useState<Consolidation[]>([]);
@@ -108,6 +116,23 @@ export default function LogisticsPage() {
     }
   }
 
+  async function setShipmentStatus(id: string, status: string, current: string) {
+    if (status === current) return;
+    setActionId(id);
+    setError("");
+    try {
+      await apiFetch(`/api/logistics/shipments/${id}/status`, {
+        method: "PUT",
+        body: JSON.stringify({ status }),
+      });
+      await loadData();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Failed to update shipment.");
+    } finally {
+      setActionId(null);
+    }
+  }
+
   return (
     <AdminShell title="Logistics">
       <div style={{ marginBottom: 16, display: "flex", justifyContent: "flex-end" }}>
@@ -169,18 +194,47 @@ export default function LogisticsPage() {
                       {shipment.declaredValue.toFixed(2)} {shipment.currency}
                     </td>
                     <td>
-                      {NEXT_STATUS[shipment.status] ? (
-                        <button
-                          type="button"
-                          className="button-secondary"
-                          disabled={actionId === shipment.id}
-                          onClick={() => void advanceShipment(shipment.id)}
+                      <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                        <select
+                          className="form-control"
+                          style={{ minHeight: 36, width: "auto", minWidth: 150 }}
+                          value={shipment.status}
+                          disabled={actionId === shipment.id || shipment.status === "Delivered"}
+                          onChange={(event) =>
+                            void setShipmentStatus(
+                              shipment.id,
+                              event.target.value,
+                              shipment.status,
+                            )
+                          }
                         >
-                          → {NEXT_STATUS[shipment.status]}
-                        </button>
-                      ) : (
-                        "Delivered"
-                      )}
+                          {SHIPMENT_STATUSES.map((status) => {
+                            const currentIndex = SHIPMENT_STATUSES.indexOf(
+                              shipment.status as (typeof SHIPMENT_STATUSES)[number],
+                            );
+                            const optionIndex = SHIPMENT_STATUSES.indexOf(status);
+                            return (
+                              <option
+                                key={status}
+                                value={status}
+                                disabled={optionIndex < currentIndex}
+                              >
+                                {status}
+                              </option>
+                            );
+                          })}
+                        </select>
+                        {NEXT_STATUS[shipment.status] ? (
+                          <button
+                            type="button"
+                            className="button-secondary"
+                            disabled={actionId === shipment.id}
+                            onClick={() => void advanceShipment(shipment.id)}
+                          >
+                            → {NEXT_STATUS[shipment.status]}
+                          </button>
+                        ) : null}
+                      </div>
                     </td>
                   </tr>
                 ))

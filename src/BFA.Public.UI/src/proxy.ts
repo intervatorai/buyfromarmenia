@@ -24,6 +24,7 @@ export function proxy(request: NextRequest) {
 export const config = {
   matcher: [
     "/account",
+    "/account/addresses/:path*",
     "/cart/:path*",
     "/wishlist/:path*",
     "/orders/:path*",

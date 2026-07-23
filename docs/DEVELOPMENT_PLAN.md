@@ -365,6 +365,10 @@ Identity → Suppliers → Catalog → Inventory → Shopping → Ordering → F
 | CustomsDeclaration | `[x]` basic |
 | Tracking updates | `[x]` advance status |
 | **Admin UI:** `/logistics` | `[x]` |
+| Shipping rate brackets (country + weight) | `[x]` Admin `/settings/shipping-rates` |
+| Error margin % on quote | `[x]` global setting |
+| Checkout shipping quote + order fees | `[x]` estimate at place-order |
+| Post-warehouse shipping fee adjustment | `[x]` Admin order adjust |
 
 ### 7.3 Event infrastructure
 

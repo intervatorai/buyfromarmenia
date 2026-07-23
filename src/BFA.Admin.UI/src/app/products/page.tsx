@@ -2,9 +2,10 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useRef, useState } from "react";
 import { AdminShell } from "@/components/layout/AdminShell";
 import { ProductFormModal } from "@/components/ui/ProductFormModal";
+import { ProductSubpanels } from "@/components/ui/ProductSubpanels";
 import { PromptModal } from "@/components/ui/PromptModal";
 import { ApiError, apiFetch } from "@/lib/api";
 
@@ -71,6 +72,7 @@ export default function ProductsPage() {
   const [editId, setEditId] = useState<string | null>(null);
   const [prompt, setPrompt] = useState<PromptState>(null);
   const [openMenuId, setOpenMenuId] = useState("");
+  const [expandedId, setExpandedId] = useState("");
   const menuRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -183,6 +185,7 @@ export default function ProductsPage() {
           <table className="admin-table">
             <thead>
               <tr>
+                <th className="product-expand-cell" aria-label="Expand" />
                 <th>Product</th>
                 <th>Supplier</th>
                 <th>Price</th>
@@ -193,117 +196,148 @@ export default function ProductsPage() {
               </tr>
             </thead>
             <tbody>
-              {products.map((product) => (
-                <tr key={product.id}>
-                  <td>
-                    <Link href={`/products/${product.id}`}>
-                      <strong>{product.name}</strong>
-                    </Link>
-                    <div style={{ color: "var(--admin-muted)", fontSize: 12 }}>
-                      {product.shortDescription || product.description}
-                    </div>
-                  </td>
-                  <td style={{ fontSize: 12, color: "var(--admin-muted)" }}>
-                    {product.supplierId.slice(0, 8)}…
-                  </td>
-                  <td>
-                    {product.price.toFixed(2)} {product.currency}
-                  </td>
-                  <td>
-                    <span className={`status-badge ${statusClass(product.status)}`}>
-                      {product.status}
-                    </span>
-                  </td>
-                  <td>{product.tag && product.tag !== "None" ? product.tag : "—"}</td>
-                  <td>{new Date(product.createdAt).toLocaleDateString("en-GB")}</td>
-                  <td>
-                    <div
-                      className="row-menu"
-                      ref={openMenuId === product.id ? menuRef : undefined}
-                    >
-                      <button
-                        type="button"
-                        className="row-menu-trigger"
-                        aria-haspopup="menu"
-                        aria-expanded={openMenuId === product.id}
-                        aria-label="Product actions"
-                        disabled={actionId === product.id}
-                        onClick={() =>
-                          setOpenMenuId((current) =>
-                            current === product.id ? "" : product.id,
-                          )
-                        }
-                      >
-                        {actionId === product.id ? "…" : "⋯"}
-                      </button>
-                      {openMenuId === product.id ? (
-                        <div className="row-menu-dropdown" role="menu">
-                          <Link
-                            href={`/products/${product.id}`}
-                            role="menuitem"
-                            className="row-menu-item"
-                            onClick={() => setOpenMenuId("")}
-                          >
-                            Open
-                          </Link>
+              {products.map((product) => {
+                const isExpanded = expandedId === product.id;
+                return (
+                  <Fragment key={product.id}>
+                    <tr>
+                      <td className="product-expand-cell">
+                        <button
+                          type="button"
+                          className="product-expand-btn"
+                          aria-expanded={isExpanded}
+                          aria-label={isExpanded ? "Collapse product" : "Expand product"}
+                          onClick={() =>
+                            setExpandedId((current) =>
+                              current === product.id ? "" : product.id,
+                            )
+                          }
+                        >
+                          {isExpanded ? "▾" : "▸"}
+                        </button>
+                      </td>
+                      <td>
+                        <Link href={`/products/${product.id}`}>
+                          <strong>{product.name}</strong>
+                        </Link>
+                        <div style={{ color: "var(--admin-muted)", fontSize: 12 }}>
+                          {product.shortDescription || product.description}
+                        </div>
+                      </td>
+                      <td style={{ fontSize: 12, color: "var(--admin-muted)" }}>
+                        {product.supplierId.slice(0, 8)}…
+                      </td>
+                      <td>
+                        {product.price.toFixed(2)} {product.currency}
+                      </td>
+                      <td>
+                        <span className={`status-badge ${statusClass(product.status)}`}>
+                          {product.status}
+                        </span>
+                      </td>
+                      <td>{product.tag && product.tag !== "None" ? product.tag : "—"}</td>
+                      <td>{new Date(product.createdAt).toLocaleDateString("en-GB")}</td>
+                      <td>
+                        <div
+                          className="row-menu"
+                          ref={openMenuId === product.id ? menuRef : undefined}
+                        >
                           <button
                             type="button"
-                            role="menuitem"
-                            className="row-menu-item"
-                            onClick={() => {
-                              setOpenMenuId("");
-                              setEditId(product.id);
-                              setFormOpen(true);
-                            }}
+                            className="row-menu-trigger"
+                            aria-haspopup="menu"
+                            aria-expanded={openMenuId === product.id}
+                            aria-label="Product actions"
+                            disabled={actionId === product.id}
+                            onClick={() =>
+                              setOpenMenuId((current) =>
+                                current === product.id ? "" : product.id,
+                              )
+                            }
                           >
-                            Edit
+                            {actionId === product.id ? "…" : "⋯"}
                           </button>
-                          {product.status === "PendingReview" ? (
-                            <>
+                          {openMenuId === product.id ? (
+                            <div className="row-menu-dropdown" role="menu">
+                              <Link
+                                href={`/products/${product.id}`}
+                                role="menuitem"
+                                className="row-menu-item"
+                                onClick={() => setOpenMenuId("")}
+                              >
+                                Open
+                              </Link>
                               <button
                                 type="button"
                                 role="menuitem"
                                 className="row-menu-item"
                                 onClick={() => {
                                   setOpenMenuId("");
-                                  void approveProduct(product.id);
+                                  setEditId(product.id);
+                                  setFormOpen(true);
                                 }}
                               >
-                                Approve &amp; publish
+                                Edit
                               </button>
-                              <button
-                                type="button"
-                                role="menuitem"
-                                className="row-menu-item"
-                                onClick={() => {
-                                  setOpenMenuId("");
-                                  setPrompt({
-                                    kind: "request-changes",
-                                    productId: product.id,
-                                  });
-                                }}
-                              >
-                                Request changes
-                              </button>
-                              <button
-                                type="button"
-                                role="menuitem"
-                                className="row-menu-item danger"
-                                onClick={() => {
-                                  setOpenMenuId("");
-                                  setPrompt({ kind: "reject", productId: product.id });
-                                }}
-                              >
-                                Reject
-                              </button>
-                            </>
+                              {product.status === "PendingReview" ? (
+                                <>
+                                  <button
+                                    type="button"
+                                    role="menuitem"
+                                    className="row-menu-item"
+                                    onClick={() => {
+                                      setOpenMenuId("");
+                                      void approveProduct(product.id);
+                                    }}
+                                  >
+                                    Approve &amp; publish
+                                  </button>
+                                  <button
+                                    type="button"
+                                    role="menuitem"
+                                    className="row-menu-item"
+                                    onClick={() => {
+                                      setOpenMenuId("");
+                                      setPrompt({
+                                        kind: "request-changes",
+                                        productId: product.id,
+                                      });
+                                    }}
+                                  >
+                                    Request changes
+                                  </button>
+                                  <button
+                                    type="button"
+                                    role="menuitem"
+                                    className="row-menu-item danger"
+                                    onClick={() => {
+                                      setOpenMenuId("");
+                                      setPrompt({ kind: "reject", productId: product.id });
+                                    }}
+                                  >
+                                    Reject
+                                  </button>
+                                </>
+                              ) : null}
+                            </div>
                           ) : null}
                         </div>
-                      ) : null}
-                    </div>
-                  </td>
-                </tr>
-              ))}
+                      </td>
+                    </tr>
+                    {isExpanded ? (
+                      <tr className="product-expand-row">
+                        <td colSpan={8}>
+                          <ProductSubpanels
+                            productId={product.id}
+                            collapsible={false}
+                            defaultOpen
+                          />
+                        </td>
+                      </tr>
+                    ) : null}
+                  </Fragment>
+                );
+              })}
             </tbody>
           </table>
         </div>

@@ -1,8 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { useAuth } from "@/components/providers/AuthProvider";
 import { useLanguage } from "@/components/providers/LanguageProvider";
 import { PublicSiteLayout } from "@/components/layout/PublicSiteLayout";
 import { ApiError, apiFetch, type PublicProductDetail } from "@/lib/api";
@@ -17,6 +18,9 @@ function formatPrice(price: number, currency: string) {
 
 export default function ProductDetailPage() {
   const params = useParams<{ slug: string }>();
+  const pathname = usePathname();
+  const router = useRouter();
+  const { isAuthenticated, isLoading: isAuthLoading } = useAuth();
   const { translate, language } = useLanguage();
   const [product, setProduct] = useState<PublicProductDetail | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -40,11 +44,7 @@ export default function ProductDetailPage() {
           `/api/products/${encodeURIComponent(params.slug)}?lang=${language}`,
         );
         setProduct(data);
-        setSelectedVariantId(
-          data.variants.find((variant) => variant.available > 0)?.id ??
-            data.variants[0]?.id ??
-            "",
-        );
+        setSelectedVariantId(data.variants[0]?.id ?? "");
       } catch (err) {
         if (err instanceof ApiError && err.status === 404) {
           setError(translate("productNotFound"));
@@ -68,7 +68,14 @@ export default function ProductDetailPage() {
   );
 
   async function addToCart() {
-    if (!product || !selectedVariantId) {
+    if (!product || !selectedVariantId || isAuthLoading) {
+      return;
+    }
+
+    if (!isAuthenticated) {
+      router.push(
+        `/account/login?returnTo=${encodeURIComponent(pathname)}`,
+      );
       return;
     }
 
@@ -170,7 +177,6 @@ export default function ProductDetailPage() {
                       <button
                         key={variant.id}
                         type="button"
-                        disabled={variant.available === 0}
                         className={
                           selectedVariantId === variant.id
                             ? "product-variant-option active"
@@ -181,19 +187,24 @@ export default function ProductDetailPage() {
                         <strong>{variant.supplierSku}</strong>
                         {variant.size ? ` · ${variant.size}` : ""}
                         {variant.color ? ` · ${variant.color}` : ""}
-                        {` · ${variant.available} ${translate("inStock")}`}
                       </button>
                     ))}
                   </div>
                 </div>
               ) : null}
 
+              {product.variants.length === 0 ? (
+                <p className="catalog-message catalog-error">
+                  This product has no available options right now.
+                </p>
+              ) : null}
+
               <div className="product-cart-actions">
                 <input
                   type="number"
                   min={1}
-                  max={selectedVariant?.available ?? 1}
                   value={quantity}
+                  disabled={product.variants.length === 0}
                   onChange={(event) =>
                     setQuantity(Math.max(1, Number(event.target.value)))
                   }
@@ -204,8 +215,9 @@ export default function ProductDetailPage() {
                   className="button button-primary product-detail-cta"
                   disabled={
                     isAdding ||
+                    isAuthLoading ||
                     !selectedVariant ||
-                    selectedVariant.available < quantity
+                    product.variants.length === 0
                   }
                   onClick={() => void addToCart()}
                 >

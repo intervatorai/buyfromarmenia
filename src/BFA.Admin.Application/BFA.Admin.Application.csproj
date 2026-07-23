@@ -11,6 +11,8 @@
     <ProjectReference Include="..\Modules\Settlements\BFA.Modules.Settlements.Domain\BFA.Modules.Settlements.Domain.csproj" />
     <ProjectReference Include="..\Modules\Returns\BFA.Modules.Returns.Domain\BFA.Modules.Returns.Domain.csproj" />
     <ProjectReference Include="..\Modules\Compliance\BFA.Modules.Compliance.Domain\BFA.Modules.Compliance.Domain.csproj" />
+    <ProjectReference Include="..\Modules\Inventory\BFA.Modules.Inventory.Domain\BFA.Modules.Inventory.Domain.csproj" />
+    <ProjectReference Include="..\Modules\Shopping\BFA.Modules.Shopping.Domain\BFA.Modules.Shopping.Domain.csproj" />
     <ProjectReference Include="..\BuildingBlocks\BFA.BuildingBlocks.Application\BFA.BuildingBlocks.Application.csproj" />
   </ItemGroup>
 

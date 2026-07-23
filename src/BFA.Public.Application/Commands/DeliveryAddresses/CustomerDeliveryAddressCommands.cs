@@ -1,5 +1,7 @@
+using BFA.BuildingBlocks.Domain;
 using BFA.Modules.Identity.Domain.Aggregates;
 using BFA.Modules.Identity.Domain.Repositories;
+using BFA.Modules.Shipping.Domain.Repositories;
 using MediatR;
 
 namespace BFA.Public.Application.Commands.DeliveryAddresses;
@@ -86,13 +88,16 @@ public sealed class CreateCustomerDeliveryAddressCommandHandler
 {
     private readonly ICustomerDeliveryAddressRepository _addressRepository;
     private readonly ICustomerProfileRepository _profileRepository;
+    private readonly IShippingCountryRepository _shippingCountryRepository;
 
     public CreateCustomerDeliveryAddressCommandHandler(
         ICustomerDeliveryAddressRepository addressRepository,
-        ICustomerProfileRepository profileRepository)
+        ICustomerProfileRepository profileRepository,
+        IShippingCountryRepository shippingCountryRepository)
     {
         _addressRepository = addressRepository;
         _profileRepository = profileRepository;
+        _shippingCountryRepository = shippingCountryRepository;
     }
 
     public async Task<CustomerDeliveryAddressDto?> Handle(
@@ -104,6 +109,12 @@ public sealed class CreateCustomerDeliveryAddressCommandHandler
         {
             return null;
         }
+
+        await ShippingCountryGuard.EnsureAllowedAsync(
+            _shippingCountryRepository,
+            request.CountryCode,
+            null,
+            cancellationToken);
 
         var existing = await _addressRepository.GetByUserIdAsync(request.UserId, cancellationToken);
         var makeDefault = request.IsDefault || existing.Count == 0;
@@ -146,11 +157,14 @@ public sealed class UpdateCustomerDeliveryAddressCommandHandler
     : IRequestHandler<UpdateCustomerDeliveryAddressCommand, CustomerDeliveryAddressDto?>
 {
     private readonly ICustomerDeliveryAddressRepository _addressRepository;
+    private readonly IShippingCountryRepository _shippingCountryRepository;
 
     public UpdateCustomerDeliveryAddressCommandHandler(
-        ICustomerDeliveryAddressRepository addressRepository)
+        ICustomerDeliveryAddressRepository addressRepository,
+        IShippingCountryRepository shippingCountryRepository)
     {
         _addressRepository = addressRepository;
+        _shippingCountryRepository = shippingCountryRepository;
     }
 
     public async Task<CustomerDeliveryAddressDto?> Handle(
@@ -166,6 +180,12 @@ public sealed class UpdateCustomerDeliveryAddressCommandHandler
             return null;
         }
 
+        await ShippingCountryGuard.EnsureAllowedAsync(
+            _shippingCountryRepository,
+            request.CountryCode,
+            address.CountryCode,
+            cancellationToken);
+
         address.Update(
             request.CountryCode,
             request.City,
@@ -176,6 +196,32 @@ public sealed class UpdateCustomerDeliveryAddressCommandHandler
             request.Label);
         await _addressRepository.UpdateAsync(address, cancellationToken);
         return DeliveryAddressMapper.ToDto(address);
+    }
+}
+
+internal static class ShippingCountryGuard
+{
+    public static async Task EnsureAllowedAsync(
+        IShippingCountryRepository shippingCountryRepository,
+        string countryCode,
+        string? existingCountryCode,
+        CancellationToken cancellationToken)
+    {
+        var normalized = countryCode.Trim().ToUpperInvariant();
+        var existingNormalized = existingCountryCode?.Trim().ToUpperInvariant();
+
+        // Allow keeping a previously saved country even if it was later disabled.
+        if (existingNormalized is not null
+            && string.Equals(normalized, existingNormalized, StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        var country = await shippingCountryRepository.GetByIsoCodeAsync(normalized, cancellationToken);
+        if (country is null || !country.IsEnabled)
+        {
+            throw new DomainException("Shipping to this country is not available.");
+        }
     }
 }
 

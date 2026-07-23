@@ -1,5 +1,6 @@
 using BFA.Admin.Application.Commands.Products;
 using BFA.Admin.Application.Queries.Products;
+using BFA.BuildingBlocks.Domain;
 using BFA.Modules.Catalog.Domain.Enums;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
@@ -80,19 +81,155 @@ public class ProductsController : ControllerBase
         CancellationToken cancellationToken)
     {
         var translations = ResolveTranslations(request);
-        var updated = await _mediator.Send(
-            new UpdateAdminProductCommand(
-                id,
-                request.Price,
-                request.Currency,
-                translations,
-                request.CategoryId,
-                request.Ingredients ?? "",
-                request.UsageInstructions ?? "",
-                ParseProductTag(request.Tag)),
-            cancellationToken);
+        try
+        {
+            var updated = await _mediator.Send(
+                new UpdateAdminProductCommand(
+                    id,
+                    request.Price,
+                    request.Currency,
+                    translations,
+                    request.CategoryId,
+                    request.Ingredients ?? "",
+                    request.UsageInstructions ?? "",
+                    ParseProductTag(request.Tag),
+                    request.SupplierSku,
+                    request.VariantWeight,
+                    request.VariantSize,
+                    request.VariantColor,
+                    request.CountryOfOrigin ?? "AM"),
+                cancellationToken);
 
-        return updated ? NoContent() : NotFound();
+            return updated ? NoContent() : NotFound();
+        }
+        catch (DomainException ex)
+        {
+            return BadRequest(ex.Message);
+        }
+    }
+
+    [HttpPost("{id:guid}/variants")]
+    [Authorize(Policy = "ModeratorOrAbove")]
+    public async Task<IActionResult> AddVariant(
+        Guid id,
+        [FromBody] AdminProductVariantRequest request,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var variantId = await _mediator.Send(
+                new AddAdminProductVariantCommand(
+                    id,
+                    request.SupplierSku,
+                    request.Weight,
+                    request.CountryOfOrigin ?? "AM",
+                    request.Size,
+                    request.Color),
+                cancellationToken);
+
+            return variantId is null
+                ? NotFound()
+                : CreatedAtAction(nameof(GetProduct), new { id }, new { id = variantId });
+        }
+        catch (DomainException ex)
+        {
+            return BadRequest(ex.Message);
+        }
+    }
+
+    [HttpPut("{id:guid}/variants/{variantId:guid}")]
+    [Authorize(Policy = "ModeratorOrAbove")]
+    public async Task<IActionResult> UpdateVariant(
+        Guid id,
+        Guid variantId,
+        [FromBody] AdminProductVariantRequest request,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var updated = await _mediator.Send(
+                new UpdateAdminProductVariantCommand(
+                    id,
+                    variantId,
+                    request.SupplierSku ?? "",
+                    request.Weight,
+                    request.CountryOfOrigin ?? "AM",
+                    request.Size,
+                    request.Color),
+                cancellationToken);
+
+            return updated ? NoContent() : NotFound();
+        }
+        catch (DomainException ex)
+        {
+            return BadRequest(ex.Message);
+        }
+    }
+
+    [HttpDelete("{id:guid}/variants/{variantId:guid}")]
+    [Authorize(Policy = "ModeratorOrAbove")]
+    public async Task<IActionResult> DeleteVariant(
+        Guid id,
+        Guid variantId,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var deleted = await _mediator.Send(
+                new DeleteAdminProductVariantCommand(id, variantId),
+                cancellationToken);
+            return deleted ? NoContent() : NotFound();
+        }
+        catch (DomainException ex)
+        {
+            return BadRequest(ex.Message);
+        }
+    }
+
+    [HttpPut("{id:guid}/shipping")]
+    [Authorize(Policy = "ModeratorOrAbove")]
+    public async Task<IActionResult> SetShipping(
+        Guid id,
+        [FromBody] AdminProductShippingRequest request,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var updated = await _mediator.Send(
+                new SetAdminProductShippingCommand(
+                    id,
+                    request.NetWeight,
+                    request.GrossWeight,
+                    request.PackageLength,
+                    request.PackageWidth,
+                    request.PackageHeight,
+                    request.PackageDimensionUnit ?? "cm",
+                    request.IsFragile,
+                    request.IsPerishable),
+                cancellationToken);
+            return updated ? NoContent() : NotFound();
+        }
+        catch (DomainException ex)
+        {
+            return BadRequest(ex.Message);
+        }
+    }
+
+    [HttpDelete("{id:guid}/shipping")]
+    [Authorize(Policy = "ModeratorOrAbove")]
+    public async Task<IActionResult> ClearShipping(Guid id, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var cleared = await _mediator.Send(
+                new ClearAdminProductShippingCommand(id),
+                cancellationToken);
+            return cleared ? NoContent() : NotFound();
+        }
+        catch (DomainException ex)
+        {
+            return BadRequest(ex.Message);
+        }
     }
 
     [HttpDelete("{id:guid}")]
@@ -261,4 +398,26 @@ public record UpdateAdminProductRequest(
     string? Ingredients = null,
     string? UsageInstructions = null,
     string? Tag = null,
+    string? SupplierSku = null,
+    decimal? VariantWeight = null,
+    string? VariantSize = null,
+    string? VariantColor = null,
+    string? CountryOfOrigin = "AM",
     IReadOnlyList<ProductTranslationRequest>? Translations = null);
+
+public record AdminProductVariantRequest(
+    string? SupplierSku,
+    decimal Weight,
+    string? Size = null,
+    string? Color = null,
+    string? CountryOfOrigin = "AM");
+
+public record AdminProductShippingRequest(
+    decimal NetWeight,
+    decimal GrossWeight,
+    decimal PackageLength,
+    decimal PackageWidth,
+    decimal PackageHeight,
+    string? PackageDimensionUnit = "cm",
+    bool IsFragile = false,
+    bool IsPerishable = false);

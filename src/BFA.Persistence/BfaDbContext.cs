@@ -53,6 +53,9 @@ public class BfaDbContext : DbContext
     public DbSet<ConsolidationItem> ConsolidationItems => Set<ConsolidationItem>();
     public DbSet<Package> Packages => Set<Package>();
     public DbSet<Shipment> Shipments => Set<Shipment>();
+    public DbSet<ShippingCountry> ShippingCountries => Set<ShippingCountry>();
+    public DbSet<ShippingRateBracket> ShippingRateBrackets => Set<ShippingRateBracket>();
+    public DbSet<ShippingPricingSettings> ShippingPricingSettings => Set<ShippingPricingSettings>();
     public DbSet<SupplierSettlement> SupplierSettlements => Set<SupplierSettlement>();
     public DbSet<Payout> Payouts => Set<Payout>();
     public DbSet<OutboxMessage> OutboxMessages => Set<OutboxMessage>();

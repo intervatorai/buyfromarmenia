@@ -9,6 +9,7 @@ public sealed class Category : AggregateRoot
     public Guid? ParentCategoryId { get; private set; }
     public CategoryStatus Status { get; private set; } = CategoryStatus.Active;
     public int SortOrder { get; private set; }
+    public string SkuPrefix { get; private set; } = string.Empty;
     public DateTime CreatedAt { get; private set; }
     public DateTime? UpdatedAt { get; private set; }
 
@@ -25,7 +26,8 @@ public sealed class Category : AggregateRoot
         string languageCode = "en",
         Guid? parentCategoryId = null,
         int sortOrder = 0,
-        string? description = null)
+        string? description = null,
+        string? skuPrefix = null)
     {
         if (string.IsNullOrWhiteSpace(name))
         {
@@ -47,6 +49,11 @@ public sealed class Category : AggregateRoot
             CreatedAt = DateTime.UtcNow
         };
 
+        if (!string.IsNullOrWhiteSpace(skuPrefix))
+        {
+            category.SetSkuPrefix(skuPrefix);
+        }
+
         category._translations.Add(new CategoryTranslation(
             category.Id,
             language,
@@ -56,6 +63,34 @@ public sealed class Category : AggregateRoot
 
         category.RaiseDomainEvent(new CategoryCreatedDomainEvent(category.Id, parentCategoryId));
         return category;
+    }
+
+    public void SetSkuPrefix(string skuPrefix)
+    {
+        var normalized = NormalizeSkuPrefix(skuPrefix);
+        if (string.IsNullOrWhiteSpace(normalized))
+        {
+            throw new DomainException("SKU prefix is required (2–4 letters).");
+        }
+
+        SkuPrefix = normalized;
+        UpdatedAt = DateTime.UtcNow;
+    }
+
+    public static string NormalizeSkuPrefix(string? skuPrefix)
+    {
+        if (string.IsNullOrWhiteSpace(skuPrefix))
+        {
+            return string.Empty;
+        }
+
+        var letters = new string(skuPrefix.Trim().ToUpperInvariant().Where(char.IsLetter).ToArray());
+        if (letters.Length is < 2 or > 4)
+        {
+            throw new DomainException("SKU prefix must be 2–4 letters.");
+        }
+
+        return letters;
     }
 
     public CategoryTranslation GetTranslation(LanguageCode language)

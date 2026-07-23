@@ -33,14 +33,22 @@ export async function apiFetch<T>(
 
   if (!response.ok) {
     let message = response.statusText;
-    try {
-      const payload = (await response.json()) as { message?: string };
-      if (payload.message) {
-        message = payload.message;
-      }
-    } catch {
-      const text = await response.text().catch(() => "");
-      if (text) {
+    const text = await response.text().catch(() => "");
+    if (text) {
+      try {
+        const payload = JSON.parse(text) as {
+          error?: string;
+          message?: string;
+          title?: string;
+          detail?: string;
+        };
+        message =
+          payload.error ||
+          payload.message ||
+          payload.detail ||
+          payload.title ||
+          text;
+      } catch {
         message = text;
       }
     }

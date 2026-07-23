@@ -13,6 +13,7 @@ type CategoryItem = {
   status: string;
   sortOrder: number;
   parentCategoryId?: string | null;
+  skuPrefix?: string;
 };
 
 function slugify(value: string) {
@@ -36,6 +37,7 @@ export default function CategoriesPage() {
   const [slug, setSlug] = useState("");
   const [description, setDescription] = useState("");
   const [sortOrder, setSortOrder] = useState("0");
+  const [skuPrefix, setSkuPrefix] = useState("");
 
   const [isSeeding, setIsSeeding] = useState(false);
   const [seedMessage, setSeedMessage] = useState("");
@@ -62,6 +64,7 @@ export default function CategoriesPage() {
     setSlug("");
     setDescription("");
     setSortOrder("0");
+    setSkuPrefix("");
     setFormError("");
     setModalOpen(true);
   }
@@ -72,6 +75,7 @@ export default function CategoriesPage() {
     setSlug(category.slug);
     setDescription(category.description);
     setSortOrder(String(category.sortOrder));
+    setSkuPrefix(category.skuPrefix ?? "");
     setFormError("");
     setModalOpen(true);
   }
@@ -86,6 +90,7 @@ export default function CategoriesPage() {
       slug: slug || slugify(name),
       description,
       sortOrder: Number(sortOrder) || 0,
+      skuPrefix: skuPrefix.trim().toUpperCase(),
     };
 
     try {
@@ -128,15 +133,27 @@ export default function CategoriesPage() {
     setError("");
     setSeedMessage("");
     try {
-      const result = await apiFetch<{ added: number; skipped: number; addedSlugs: string[] }>(
-        "/api/categories/seed-defaults",
-        { method: "POST" },
-      );
+      const result = await apiFetch<{
+        added: number;
+        skipped: number;
+        prefixesUpdated: number;
+        addedSlugs: string[];
+      }>("/api/categories/seed-defaults", { method: "POST" });
+      const parts: string[] = [];
+      if (result.added > 0) {
+        parts.push(
+          `Added ${result.added} default categor${result.added === 1 ? "y" : "ies"}`,
+        );
+      }
+      if (result.prefixesUpdated > 0) {
+        parts.push(
+          `set SKU prefix on ${result.prefixesUpdated} existing categor${result.prefixesUpdated === 1 ? "y" : "ies"}`,
+        );
+      }
       setSeedMessage(
-        result.added > 0
-          ? `Added ${result.added} default categor${result.added === 1 ? "y" : "ies"}` +
-            (result.skipped > 0 ? ` (skipped ${result.skipped} existing).` : ".")
-          : `All default categories already exist (skipped ${result.skipped}).`,
+        parts.length > 0
+          ? `${parts.join("; ")}${result.skipped > 0 ? ` (skipped ${result.skipped} already present).` : "."}`
+          : `All default categories already exist with prefixes (skipped ${result.skipped}).`,
       );
       await load();
     } catch (err) {
@@ -176,6 +193,7 @@ export default function CategoriesPage() {
               <tr>
                 <th>Name</th>
                 <th>Slug</th>
+                <th>SKU prefix</th>
                 <th>Status</th>
                 <th>Sort</th>
                 <th>Actions</th>
@@ -184,7 +202,7 @@ export default function CategoriesPage() {
             <tbody>
               {categories.length === 0 ? (
                 <tr>
-                  <td colSpan={5}>No categories yet.</td>
+                  <td colSpan={6}>No categories yet.</td>
                 </tr>
               ) : (
                 categories.map((category) => (
@@ -198,6 +216,7 @@ export default function CategoriesPage() {
                       ) : null}
                     </td>
                     <td>{category.slug}</td>
+                    <td>{category.skuPrefix || "—"}</td>
                     <td>{category.status}</td>
                     <td>{category.sortOrder}</td>
                     <td style={{ display: "flex", gap: 8 }}>
@@ -273,6 +292,19 @@ export default function CategoriesPage() {
               value={slug}
               onChange={(e) => setSlug(e.target.value)}
             />
+          </div>
+          <div className="form-field">
+            <label htmlFor="category-skuPrefix">SKU prefix</label>
+            <input
+              id="category-skuPrefix"
+              value={skuPrefix}
+              maxLength={4}
+              required
+              minLength={2}
+              placeholder="e.g. JW"
+              onChange={(e) => setSkuPrefix(e.target.value.toUpperCase())}
+            />
+            <p className="form-hint">2–4 letters. Used for auto SKUs like JW-0001.</p>
           </div>
           <div className="form-field">
             <label htmlFor="category-description">Description</label>

@@ -9,6 +9,8 @@ type SupplierOrder = {
   id: string;
   customerOrderId: string;
   status: string;
+  shipmentStatus: string | null;
+  trackingNumber: string | null;
   subtotal: number;
   currency: string;
   itemsCount: number;
@@ -26,6 +28,11 @@ const ACTION_LABELS: Record<string, string> = {
   Confirmed: "Mark Preparing",
   Preparing: "Mark ReadyForPickup",
 };
+
+function formatShipmentStatus(status: string | null | undefined) {
+  if (!status) return "—";
+  return status.replace(/([a-z])([A-Z])/g, "$1 $2");
+}
 
 export default function OrdersPage() {
   const [orders, setOrders] = useState<SupplierOrder[]>([]);
@@ -111,14 +118,15 @@ export default function OrdersPage() {
               <th>Items</th>
               <th>Total</th>
               <th>Created</th>
-              <th>Status</th>
+              <th>Fulfillment</th>
+              <th>Shipping</th>
               <th>Actions</th>
             </tr>
           </thead>
           <tbody>
             {orders.length === 0 && !isLoading ? (
               <tr>
-                <td colSpan={6} style={{ textAlign: "center", color: "#64748b" }}>
+                <td colSpan={7} style={{ textAlign: "center", color: "#64748b" }}>
                   No supplier orders yet.
                 </td>
               </tr>
@@ -135,6 +143,22 @@ export default function OrdersPage() {
                   <span className={`status-badge ${order.status.toLowerCase()}`}>
                     {order.status}
                   </span>
+                </td>
+                <td>
+                  {order.shipmentStatus ? (
+                    <div>
+                      <span
+                        className={`status-badge shipment-${order.shipmentStatus.toLowerCase()}`}
+                      >
+                        {formatShipmentStatus(order.shipmentStatus)}
+                      </span>
+                      {order.trackingNumber ? (
+                        <div className="shipment-tracking">{order.trackingNumber}</div>
+                      ) : null}
+                    </div>
+                  ) : (
+                    "—"
+                  )}
                 </td>
                 <td>
                   {NEXT_STATUSES[order.status] ? (

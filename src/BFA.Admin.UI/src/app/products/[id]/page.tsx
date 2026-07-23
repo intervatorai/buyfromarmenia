@@ -6,6 +6,7 @@ import { useCallback, useEffect, useState } from "react";
 import { AdminShell } from "@/components/layout/AdminShell";
 import { ConfirmModal } from "@/components/ui/ConfirmModal";
 import { ProductFormModal } from "@/components/ui/ProductFormModal";
+import { ProductSubpanels } from "@/components/ui/ProductSubpanels";
 import { PromptModal } from "@/components/ui/PromptModal";
 import { ApiError, apiFetch } from "@/lib/api";
 
@@ -24,29 +25,11 @@ type ProductDetail = {
   categoryId?: string | null;
   createdAt: string;
   updatedAt?: string | null;
-  shipping?: {
-    netWeight: number;
-    grossWeight: number;
-    packageLength: number;
-    packageWidth: number;
-    packageHeight: number;
-    packageDimensionUnit: string;
-    isFragile: boolean;
-    isPerishable: boolean;
-  } | null;
   translations: Array<{
     languageCode: string;
     name: string;
     shortDescription: string;
     description: string;
-  }>;
-  variants: Array<{
-    id: string;
-    supplierSku: string;
-    size?: string | null;
-    color?: string | null;
-    weight: number;
-    countryOfOrigin: string;
   }>;
   media: Array<{ id: string; url: string; isPrimary: boolean }>;
   documents: Array<{ id: string; fileName: string; fileUrl: string; documentType: string }>;
@@ -125,7 +108,9 @@ export default function ProductDetailPage() {
           <div className="admin-grid" style={{ marginBottom: 24 }}>
             <div className="admin-card">
               <div className="admin-card-label">Status</div>
-              <div className="admin-card-value" style={{ fontSize: 18 }}>{product.status}</div>
+              <div className="admin-card-value" style={{ fontSize: 18 }}>
+                {product.status}
+              </div>
             </div>
             <div className="admin-card">
               <div className="admin-card-label">Tag</div>
@@ -141,12 +126,16 @@ export default function ProductDetailPage() {
             </div>
             <div className="admin-card">
               <div className="admin-card-label">Category</div>
-              <div className="admin-card-value" style={{ fontSize: 18 }}>{categoryName}</div>
+              <div className="admin-card-value" style={{ fontSize: 18 }}>
+                {categoryName}
+              </div>
             </div>
             <div className="admin-card">
               <div className="admin-card-label">Supplier</div>
               <div>
-                <Link href={`/vendors/${product.supplierId}`}>{product.supplierId.slice(0, 8)}</Link>
+                <Link href={`/vendors/${product.supplierId}`}>
+                  {product.supplierId.slice(0, 8)}
+                </Link>
               </div>
             </div>
           </div>
@@ -162,9 +151,14 @@ export default function ProductDetailPage() {
                 },
               ]
           ).map((translation) => (
-            <div key={translation.languageCode} className="admin-card" style={{ marginBottom: 16 }}>
+            <div
+              key={translation.languageCode}
+              className="admin-card"
+              style={{ marginBottom: 16 }}
+            >
               <h2 style={{ marginTop: 0 }}>
-                Description ({LANGUAGE_NAMES[translation.languageCode] ?? translation.languageCode})
+                Description (
+                {LANGUAGE_NAMES[translation.languageCode] ?? translation.languageCode})
               </h2>
               <p style={{ fontWeight: 600 }}>{translation.name}</p>
               {translation.shortDescription ? (
@@ -263,74 +257,15 @@ export default function ProductDetailPage() {
             ) : null}
           </div>
 
-          <h2>Variants</h2>
-          <div className="admin-table-wrap" style={{ marginBottom: 24 }}>
-            <table className="admin-table">
-              <thead>
-                <tr>
-                  <th>SKU</th>
-                  <th>Size</th>
-                  <th>Color</th>
-                  <th>Weight</th>
-                  <th>Origin</th>
-                </tr>
-              </thead>
-              <tbody>
-                {product.variants.length === 0 ? (
-                  <tr>
-                    <td colSpan={5} style={{ color: "var(--admin-muted)" }}>
-                      No variants
-                    </td>
-                  </tr>
-                ) : null}
-                {product.variants.map((variant) => (
-                  <tr key={variant.id}>
-                    <td>{variant.supplierSku}</td>
-                    <td>{variant.size ?? "—"}</td>
-                    <td>{variant.color ?? "—"}</td>
-                    <td>{variant.weight}</td>
-                    <td>{variant.countryOfOrigin}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <div style={{ marginBottom: 24 }}>
+            <ProductSubpanels productId={product.id} defaultOpen />
           </div>
-
-          <h2>Shipping profile</h2>
-          {product.shipping ? (
-            <div className="admin-table-wrap" style={{ marginBottom: 24 }}>
-              <table className="admin-table">
-                <thead>
-                  <tr>
-                    <th>Net weight (kg)</th>
-                    <th>Gross weight (kg)</th>
-                    <th>Length ({product.shipping.packageDimensionUnit})</th>
-                    <th>Width ({product.shipping.packageDimensionUnit})</th>
-                    <th>Height ({product.shipping.packageDimensionUnit})</th>
-                    <th>Fragile</th>
-                    <th>Perishable</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr>
-                    <td>{product.shipping.netWeight}</td>
-                    <td>{product.shipping.grossWeight}</td>
-                    <td>{product.shipping.packageLength}</td>
-                    <td>{product.shipping.packageWidth}</td>
-                    <td>{product.shipping.packageHeight}</td>
-                    <td>{product.shipping.isFragile ? "Yes" : "No"}</td>
-                    <td>{product.shipping.isPerishable ? "Yes" : "No"}</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          ) : (
-            <p style={{ color: "var(--admin-muted)", marginBottom: 24 }}>Not set</p>
-          )}
 
           <h2>Media</h2>
           <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 24 }}>
-            {product.media.length === 0 ? <p style={{ color: "var(--admin-muted)" }}>No media</p> : null}
+            {product.media.length === 0 ? (
+              <p style={{ color: "var(--admin-muted)" }}>No media</p>
+            ) : null}
             {product.media.map((media) => (
               <a key={media.id} href={media.url} target="_blank" rel="noreferrer">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -342,7 +277,9 @@ export default function ProductDetailPage() {
                     height: 96,
                     objectFit: "cover",
                     borderRadius: 8,
-                    border: media.isPrimary ? "2px solid var(--admin-accent)" : "1px solid var(--admin-border)",
+                    border: media.isPrimary
+                      ? "2px solid var(--admin-accent)"
+                      : "1px solid var(--admin-border)",
                   }}
                 />
               </a>
@@ -351,7 +288,9 @@ export default function ProductDetailPage() {
 
           <h2>Documents</h2>
           <ul>
-            {product.documents.length === 0 ? <li style={{ color: "var(--admin-muted)" }}>None</li> : null}
+            {product.documents.length === 0 ? (
+              <li style={{ color: "var(--admin-muted)" }}>None</li>
+            ) : null}
             {product.documents.map((document) => (
               <li key={document.id}>
                 <a href={document.fileUrl} target="_blank" rel="noreferrer">

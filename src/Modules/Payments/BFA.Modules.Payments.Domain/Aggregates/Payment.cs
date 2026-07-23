@@ -19,7 +19,11 @@ public sealed class Payment : AggregateRoot
     {
     }
 
-    public Payment(Guid customerOrderId, decimal amount, string currency)
+    public Payment(
+        Guid customerOrderId,
+        decimal amount,
+        string currency,
+        PaymentProvider provider = PaymentProvider.Stub)
     {
         if (customerOrderId == Guid.Empty)
         {
@@ -41,19 +45,41 @@ public sealed class Payment : AggregateRoot
         Amount = amount;
         Currency = currency.Trim().ToUpperInvariant();
         Status = PaymentRecordStatus.Pending;
-        Provider = PaymentProvider.Stub;
+        Provider = provider;
         CreatedAtUtc = DateTime.UtcNow;
     }
 
-    public void Capture()
+    public void AttachExternalReference(string externalReference)
     {
+        if (Status != PaymentRecordStatus.Pending)
+        {
+            throw new DomainException("Only pending payments can attach an external reference.");
+        }
+
+        if (string.IsNullOrWhiteSpace(externalReference))
+        {
+            throw new DomainException("External reference is required.");
+        }
+
+        ExternalReference = externalReference.Trim();
+    }
+
+    public void Capture(string? externalReference = null)
+    {
+        if (Status == PaymentRecordStatus.Captured)
+        {
+            return;
+        }
+
         if (Status != PaymentRecordStatus.Pending)
         {
             throw new DomainException("Only pending payments can be captured.");
         }
 
         Status = PaymentRecordStatus.Captured;
-        ExternalReference = $"STUB-{Id:N}";
+        ExternalReference = string.IsNullOrWhiteSpace(externalReference)
+            ? ExternalReference ?? $"STUB-{Id:N}"
+            : externalReference.Trim();
         CapturedAtUtc = DateTime.UtcNow;
         RaiseDomainEvent(new PaymentCapturedDomainEvent(Id, CustomerOrderId, Amount, Currency));
     }

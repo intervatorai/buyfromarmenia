@@ -20,12 +20,18 @@ type DashboardData = {
     id: string;
     customerOrderId: string;
     status: string;
+    shipmentStatus: string | null;
     subtotal: number;
     currency: string;
     itemsCount: number;
     createdAtUtc: string;
   }>;
 };
+
+function formatShipmentStatus(status: string | null | undefined) {
+  if (!status) return "—";
+  return status.replace(/([a-z])([A-Z])/g, "$1 $2");
+}
 
 function formatMoney(amount: number, currency: string) {
   return new Intl.NumberFormat("en-US", {
@@ -140,13 +146,14 @@ export default function DashboardPage() {
                       <th>Order</th>
                       <th>Items</th>
                       <th>Total</th>
-                      <th>Status</th>
+                      <th>Fulfillment</th>
+                      <th>Shipping</th>
                     </tr>
                   </thead>
                   <tbody>
                     {data.recentOrders.length === 0 ? (
                       <tr>
-                        <td colSpan={4} style={{ textAlign: "center", color: "#64748b" }}>
+                        <td colSpan={5} style={{ textAlign: "center", color: "#64748b" }}>
                           No orders yet
                         </td>
                       </tr>
@@ -157,6 +164,7 @@ export default function DashboardPage() {
                           <td>{order.itemsCount}</td>
                           <td>{formatMoney(order.subtotal, order.currency)}</td>
                           <td>{order.status}</td>
+                          <td>{formatShipmentStatus(order.shipmentStatus)}</td>
                         </tr>
                       ))
                     )}

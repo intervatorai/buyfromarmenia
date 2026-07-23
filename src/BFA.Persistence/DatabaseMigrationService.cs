@@ -34,5 +34,8 @@ public class DatabaseMigrationService
         await _dbContext.Database.ExecuteSqlRawAsync(
             "CREATE SCHEMA IF NOT EXISTS catalog;",
             cancellationToken);
+        await _dbContext.Database.ExecuteSqlRawAsync(
+            "CREATE SCHEMA IF NOT EXISTS shipping;",
+            cancellationToken);
     }
 }

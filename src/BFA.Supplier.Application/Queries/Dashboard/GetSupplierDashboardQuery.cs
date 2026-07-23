@@ -3,6 +3,7 @@ using BFA.Modules.Catalog.Domain.Repositories;
 using BFA.Modules.Fulfillment.Domain.Enums;
 using BFA.Modules.Fulfillment.Domain.Repositories;
 using BFA.Modules.Inventory.Domain.Repositories;
+using BFA.Modules.Shipping.Domain.Repositories;
 using MediatR;
 
 namespace BFA.Supplier.Application.Queries.Dashboard;
@@ -25,6 +26,7 @@ public record SupplierDashboardRecentOrderDto(
     Guid Id,
     Guid CustomerOrderId,
     string Status,
+    string? ShipmentStatus,
     decimal Subtotal,
     string Currency,
     int ItemsCount,
@@ -36,15 +38,18 @@ public sealed class GetSupplierDashboardQueryHandler
     private readonly ISupplierOrderRepository _supplierOrderRepository;
     private readonly IStockItemRepository _stockItemRepository;
     private readonly IProductRepository _productRepository;
+    private readonly IShipmentRepository _shipmentRepository;
 
     public GetSupplierDashboardQueryHandler(
         ISupplierOrderRepository supplierOrderRepository,
         IStockItemRepository stockItemRepository,
-        IProductRepository productRepository)
+        IProductRepository productRepository,
+        IShipmentRepository shipmentRepository)
     {
         _supplierOrderRepository = supplierOrderRepository;
         _stockItemRepository = stockItemRepository;
         _productRepository = productRepository;
+        _shipmentRepository = shipmentRepository;
     }
 
     public async Task<SupplierDashboardDto> Handle(
@@ -85,17 +90,27 @@ public sealed class GetSupplierDashboardQueryHandler
                 or SupplierOrderStatus.Confirmed
                 or SupplierOrderStatus.Preparing);
 
+        var shipments = await _shipmentRepository.GetAllAsync(cancellationToken);
+        var shipmentByCustomerOrderId = shipments
+            .GroupBy(shipment => shipment.CustomerOrderId)
+            .ToDictionary(group => group.Key, group => group.First());
+
         var recentOrders = activeOrders
             .OrderByDescending(order => order.CreatedAtUtc)
             .Take(5)
-            .Select(order => new SupplierDashboardRecentOrderDto(
-                order.Id,
-                order.CustomerOrderId,
-                order.Status.ToString(),
-                order.Subtotal,
-                order.Currency,
-                order.Items.Count,
-                order.CreatedAtUtc))
+            .Select(order =>
+            {
+                shipmentByCustomerOrderId.TryGetValue(order.CustomerOrderId, out var shipment);
+                return new SupplierDashboardRecentOrderDto(
+                    order.Id,
+                    order.CustomerOrderId,
+                    order.Status.ToString(),
+                    shipment?.Status.ToString(),
+                    order.Subtotal,
+                    order.Currency,
+                    order.Items.Count,
+                    order.CreatedAtUtc);
+            })
             .ToList();
 
         return new SupplierDashboardDto(

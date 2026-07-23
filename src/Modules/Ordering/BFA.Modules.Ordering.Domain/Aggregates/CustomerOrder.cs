@@ -18,6 +18,12 @@ public sealed class CustomerOrder : AggregateRoot
     public PaymentStatus PaymentStatus { get; private set; }
     public FulfillmentStatus FulfillmentStatus { get; private set; }
     public decimal Subtotal { get; private set; }
+    public decimal EstimatedWeightKg { get; private set; }
+    public decimal ShippingFeeQuoted { get; private set; }
+    public decimal ShippingMarginPercent { get; private set; }
+    public decimal ShippingFee { get; private set; }
+    public decimal Total => Subtotal + ShippingFee;
+    public string? ShippingAdjustmentReason { get; private set; }
     public string Currency { get; private set; } = "USD";
     public DateTime CreatedAtUtc { get; private set; }
     public DateTime UpdatedAtUtc { get; private set; }
@@ -34,6 +40,10 @@ public sealed class CustomerOrder : AggregateRoot
         string customerFullName,
         Address shippingAddress,
         IReadOnlyList<CustomerOrderItemDraft> items,
+        decimal estimatedWeightKg,
+        decimal shippingFeeQuoted,
+        decimal shippingMarginPercent,
+        decimal shippingFee,
         Guid? customerUserId = null)
     {
         if (cartId == Guid.Empty)
@@ -61,6 +71,21 @@ public sealed class CustomerOrder : AggregateRoot
             throw new DomainException("Order must contain at least one item.");
         }
 
+        if (estimatedWeightKg <= 0)
+        {
+            throw new DomainException("Estimated shipping weight must be positive.");
+        }
+
+        if (shippingFeeQuoted < 0 || shippingFee < 0)
+        {
+            throw new DomainException("Shipping fee cannot be negative.");
+        }
+
+        if (shippingMarginPercent < 0)
+        {
+            throw new DomainException("Shipping margin percent cannot be negative.");
+        }
+
         var currencies = items.Select(item => item.Currency).Distinct().ToList();
         if (currencies.Count != 1)
         {
@@ -79,6 +104,10 @@ public sealed class CustomerOrder : AggregateRoot
         FulfillmentStatus = FulfillmentStatus.Pending;
         Currency = currencies[0];
         Subtotal = items.Sum(item => item.UnitPrice * item.Quantity);
+        EstimatedWeightKg = estimatedWeightKg;
+        ShippingFeeQuoted = shippingFeeQuoted;
+        ShippingMarginPercent = shippingMarginPercent;
+        ShippingFee = shippingFee;
         CreatedAtUtc = DateTime.UtcNow;
         UpdatedAtUtc = CreatedAtUtc;
 
@@ -98,6 +127,20 @@ public sealed class CustomerOrder : AggregateRoot
         }
 
         RaiseDomainEvent(new CustomerOrderPlacedDomainEvent(Id, OrderNumber, CartId));
+    }
+
+    public void AdjustShippingFee(decimal newShippingFee, string? reason)
+    {
+        if (newShippingFee < 0)
+        {
+            throw new DomainException("Shipping fee cannot be negative.");
+        }
+
+        ShippingFee = newShippingFee;
+        ShippingAdjustmentReason = string.IsNullOrWhiteSpace(reason)
+            ? null
+            : reason.Trim();
+        UpdatedAtUtc = DateTime.UtcNow;
     }
 
     public void MarkPaymentPaid()
@@ -130,8 +173,152 @@ public sealed class CustomerOrder : AggregateRoot
 
     public void MarkCompleted()
     {
+        if (Status == OrderStatus.Completed)
+        {
+            return;
+        }
+
+        if (Status is OrderStatus.Cancelled)
+        {
+            throw new DomainException("Cancelled orders cannot be completed.");
+        }
+
+        if (Status is not (OrderStatus.Confirmed or OrderStatus.Placed))
+        {
+            throw new DomainException("Only confirmed (or placed) orders can be completed.");
+        }
+
+        if (Status == OrderStatus.Placed && PaymentStatus != PaymentStatus.Paid)
+        {
+            throw new DomainException("Order must be paid before completion.");
+        }
+
         Status = OrderStatus.Completed;
         FulfillmentStatus = FulfillmentStatus.Completed;
+        UpdatedAtUtc = DateTime.UtcNow;
+    }
+
+    public void Cancel()
+    {
+        if (Status is OrderStatus.Completed or OrderStatus.Cancelled)
+        {
+            throw new DomainException("Completed or cancelled orders cannot be cancelled.");
+        }
+
+        Status = OrderStatus.Cancelled;
+        FulfillmentStatus = FulfillmentStatus.Cancelled;
+        UpdatedAtUtc = DateTime.UtcNow;
+    }
+
+    /// <summary>
+    /// Admin override for order lifecycle. Keeps payment/fulfillment consistent.
+    /// </summary>
+    public void ChangeStatusAsAdmin(OrderStatus newStatus)
+    {
+        if (Status == newStatus)
+        {
+            return;
+        }
+
+        switch (newStatus)
+        {
+            case OrderStatus.Confirmed:
+                if (Status != OrderStatus.Placed)
+                {
+                    throw new DomainException("Only placed orders can be confirmed.");
+                }
+
+                if (PaymentStatus == PaymentStatus.Pending)
+                {
+                    PaymentStatus = PaymentStatus.Paid;
+                }
+
+                if (PaymentStatus is PaymentStatus.Failed)
+                {
+                    throw new DomainException("Cannot confirm an order with failed payment.");
+                }
+
+                Status = OrderStatus.Confirmed;
+                FulfillmentStatus = FulfillmentStatus.InProgress;
+                break;
+
+            case OrderStatus.Completed:
+                if (Status is OrderStatus.Cancelled)
+                {
+                    throw new DomainException("Cancelled orders cannot be completed.");
+                }
+
+                if (PaymentStatus == PaymentStatus.Pending)
+                {
+                    PaymentStatus = PaymentStatus.Paid;
+                }
+
+                if (PaymentStatus is PaymentStatus.Failed)
+                {
+                    throw new DomainException("Cannot complete an order with failed payment.");
+                }
+
+                Status = OrderStatus.Completed;
+                FulfillmentStatus = FulfillmentStatus.Completed;
+                break;
+
+            case OrderStatus.Cancelled:
+                Cancel();
+                return;
+
+            case OrderStatus.Placed:
+                throw new DomainException("Cannot move an order back to Placed.");
+
+            default:
+                throw new DomainException($"Unsupported order status '{newStatus}'.");
+        }
+
+        UpdatedAtUtc = DateTime.UtcNow;
+    }
+
+    public void ChangePaymentStatusAsAdmin(PaymentStatus newStatus)
+    {
+        if (PaymentStatus == newStatus)
+        {
+            return;
+        }
+
+        switch (newStatus)
+        {
+            case PaymentStatus.Paid:
+                if (PaymentStatus is not (PaymentStatus.Pending or PaymentStatus.Failed))
+                {
+                    throw new DomainException("Only pending or failed payments can be marked as paid.");
+                }
+
+                PaymentStatus = PaymentStatus.Paid;
+                break;
+
+            case PaymentStatus.Failed:
+                if (PaymentStatus != PaymentStatus.Pending)
+                {
+                    throw new DomainException("Only pending payments can be marked as failed.");
+                }
+
+                PaymentStatus = PaymentStatus.Failed;
+                break;
+
+            case PaymentStatus.Refunded:
+                if (PaymentStatus != PaymentStatus.Paid)
+                {
+                    throw new DomainException("Only paid payments can be refunded.");
+                }
+
+                PaymentStatus = PaymentStatus.Refunded;
+                break;
+
+            case PaymentStatus.Pending:
+                throw new DomainException("Cannot move payment back to Pending.");
+
+            default:
+                throw new DomainException($"Unsupported payment status '{newStatus}'.");
+        }
+
         UpdatedAtUtc = DateTime.UtcNow;
     }
 }

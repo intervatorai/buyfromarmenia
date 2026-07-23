@@ -1,23 +1,33 @@
 using System.Text;
-using System.Text.Json;
+using BFA.Public.Application.Commands.Orders;
+using BFA.Public.Application.Services.Payments;
+using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
+using Stripe;
 
 namespace BFA.Public.Api.Controllers;
 
-/// <summary>
-/// Stripe webhook skeleton. Signature verification and payment capture wiring come in Phase 3.
-/// </summary>
 [ApiController]
 [Route("api/webhooks")]
 [AllowAnonymous]
 public sealed class StripeWebhooksController : ControllerBase
 {
+    private readonly IMediator _mediator;
+    private readonly IStripeCheckoutService _stripeCheckoutService;
+    private readonly StripeOptions _stripeOptions;
     private readonly ILogger<StripeWebhooksController> _logger;
 
-    public StripeWebhooksController(ILogger<StripeWebhooksController> logger)
+    public StripeWebhooksController(
+        IMediator mediator,
+        IStripeCheckoutService stripeCheckoutService,
+        IOptions<StripeOptions> stripeOptions,
+        ILogger<StripeWebhooksController> logger)
     {
+        _mediator = mediator;
+        _stripeCheckoutService = stripeCheckoutService;
+        _stripeOptions = stripeOptions.Value;
         _logger = logger;
     }
 
@@ -26,45 +36,63 @@ public sealed class StripeWebhooksController : ControllerBase
     {
         using var reader = new StreamReader(Request.Body, Encoding.UTF8);
         var payload = await reader.ReadToEndAsync(cancellationToken);
-
         var signatureHeader = Request.Headers["Stripe-Signature"].ToString();
+
+        if (!_stripeCheckoutService.IsEnabled
+            || string.IsNullOrWhiteSpace(_stripeOptions.WebhookSecret)
+            || _stripeOptions.WebhookSecret.Contains("YOUR_", StringComparison.Ordinal))
+        {
+            _logger.LogWarning("Stripe webhook received but Stripe is not fully configured.");
+            return Ok(new { received = true, note = "Stripe not configured — event ignored." });
+        }
+
         if (string.IsNullOrWhiteSpace(signatureHeader))
         {
-            _logger.LogWarning("Stripe webhook received without Stripe-Signature header.");
+            return BadRequest(new { code = "missing_signature", message = "Stripe-Signature header is required." });
         }
 
-        string? eventType = null;
-        string? eventId = null;
-
+        StripeWebhookEvent parsed;
         try
         {
-            using var document = JsonDocument.Parse(string.IsNullOrWhiteSpace(payload) ? "{}" : payload);
-            if (document.RootElement.TryGetProperty("type", out var typeProperty))
-            {
-                eventType = typeProperty.GetString();
-            }
-
-            if (document.RootElement.TryGetProperty("id", out var idProperty))
-            {
-                eventId = idProperty.GetString();
-            }
+            parsed = _stripeCheckoutService.ParseWebhookEvent(payload, signatureHeader);
         }
-        catch (JsonException)
+        catch (StripeException ex)
         {
-            return BadRequest(new { code = "invalid_payload", message = "Unable to parse Stripe event JSON." });
+            _logger.LogWarning(ex, "Stripe webhook signature verification failed.");
+            return BadRequest(new { code = "invalid_signature", message = ex.Message });
         }
 
         _logger.LogInformation(
-            "Stripe webhook stub accepted event {EventId} of type {EventType}.",
-            eventId ?? "unknown",
-            eventType ?? "unknown");
+            "Stripe webhook {EventId} type {EventType} session {SessionId} order {OrderId}",
+            parsed.EventId,
+            parsed.EventType,
+            parsed.SessionId,
+            parsed.OrderId);
 
-        return Ok(new
+        try
         {
-            received = true,
-            eventId,
-            eventType,
-            note = "Stub only — payment capture not wired yet."
-        });
+            var handled = await _mediator.Send(
+                new CompleteStripeCheckoutCommand(
+                    parsed.EventId,
+                    parsed.EventType,
+                    parsed.SessionId,
+                    parsed.OrderId,
+                    parsed.PaymentId,
+                    parsed.PaymentIntentId),
+                cancellationToken);
+
+            return Ok(new
+            {
+                received = true,
+                handled,
+                eventId = parsed.EventId,
+                eventType = parsed.EventType
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to process Stripe webhook {EventId}.", parsed.EventId);
+            return StatusCode(500, new { code = "processing_failed", message = "Webhook processing failed." });
+        }
     }
 }

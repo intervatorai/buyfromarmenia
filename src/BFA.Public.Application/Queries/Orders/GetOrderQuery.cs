@@ -1,3 +1,5 @@
+using BFA.Modules.Fulfillment.Domain.Aggregates;
+using BFA.Modules.Fulfillment.Domain.Repositories;
 using BFA.Modules.Ordering.Domain.Repositories;
 using BFA.Modules.Payments.Domain.Repositories;
 using MediatR;
@@ -18,6 +20,8 @@ public record PublicOrderSummaryDto(
     string PaymentStatus,
     string FulfillmentStatus,
     decimal Subtotal,
+    decimal ShippingFee,
+    decimal Total,
     string Currency,
     int ItemsCount,
     DateTime CreatedAtUtc);
@@ -32,9 +36,16 @@ public record PublicOrderDetailDto(
     string? PaymentReference,
     string FulfillmentStatus,
     decimal Subtotal,
+    decimal EstimatedWeightKg,
+    decimal ShippingFeeQuoted,
+    decimal ShippingMarginPercent,
+    decimal ShippingFee,
+    decimal Total,
+    string? ShippingAdjustmentReason,
     string Currency,
     PublicOrderAddressDto ShippingAddress,
     IReadOnlyList<PublicOrderItemDto> Items,
+    IReadOnlyList<PublicSupplierFulfillmentDto> SupplierFulfillments,
     DateTime CreatedAtUtc);
 
 public record PublicOrderAddressDto(
@@ -55,18 +66,26 @@ public record PublicOrderItemDto(
     int Quantity,
     decimal LineTotal);
 
+public record PublicSupplierFulfillmentDto(
+    string Status,
+    int ItemsCount,
+    IReadOnlyList<string> ProductNames);
+
 public sealed class GetOrderQueryHandler
     : IRequestHandler<GetOrderQuery, PublicOrderDetailDto?>
 {
     private readonly ICustomerOrderRepository _orderRepository;
     private readonly IPaymentRepository _paymentRepository;
+    private readonly ISupplierOrderRepository _supplierOrderRepository;
 
     public GetOrderQueryHandler(
         ICustomerOrderRepository orderRepository,
-        IPaymentRepository paymentRepository)
+        IPaymentRepository paymentRepository,
+        ISupplierOrderRepository supplierOrderRepository)
     {
         _orderRepository = orderRepository;
         _paymentRepository = paymentRepository;
+        _supplierOrderRepository = supplierOrderRepository;
     }
 
     public async Task<PublicOrderDetailDto?> Handle(
@@ -82,7 +101,10 @@ public sealed class GetOrderQueryHandler
         var payment = await _paymentRepository.GetByCustomerOrderIdAsync(
             order.Id,
             cancellationToken);
-        return OrderMapper.ToDetail(order, payment?.ExternalReference);
+        var supplierOrders = await _supplierOrderRepository.GetByCustomerOrderIdAsync(
+            order.Id,
+            cancellationToken);
+        return OrderMapper.ToDetail(order, payment?.ExternalReference, supplierOrders);
     }
 }
 
@@ -140,6 +162,8 @@ internal static class OrderMapper
             order.PaymentStatus.ToString(),
             order.FulfillmentStatus.ToString(),
             order.Subtotal,
+            order.ShippingFee,
+            order.Total,
             order.Currency,
             order.Items.Count,
             order.CreatedAtUtc);
@@ -147,8 +171,20 @@ internal static class OrderMapper
 
     internal static PublicOrderDetailDto ToDetail(
         BFA.Modules.Ordering.Domain.Aggregates.CustomerOrder order,
-        string? paymentReference = null)
+        string? paymentReference = null,
+        IReadOnlyList<SupplierOrder>? supplierOrders = null)
     {
+        var fulfillments = (supplierOrders ?? Array.Empty<SupplierOrder>())
+            .OrderBy(supplierOrder => supplierOrder.CreatedAtUtc)
+            .Select(supplierOrder => new PublicSupplierFulfillmentDto(
+                supplierOrder.Status.ToString(),
+                supplierOrder.Items.Count,
+                supplierOrder.Items
+                    .Select(item => item.ProductName)
+                    .Distinct()
+                    .ToList()))
+            .ToList();
+
         return new PublicOrderDetailDto(
             order.Id,
             order.OrderNumber,
@@ -159,6 +195,12 @@ internal static class OrderMapper
             paymentReference,
             order.FulfillmentStatus.ToString(),
             order.Subtotal,
+            order.EstimatedWeightKg,
+            order.ShippingFeeQuoted,
+            order.ShippingMarginPercent,
+            order.ShippingFee,
+            order.Total,
+            order.ShippingAdjustmentReason,
             order.Currency,
             new PublicOrderAddressDto(
                 order.ShippingAddress.CountryCode,
@@ -176,6 +218,7 @@ internal static class OrderMapper
                 item.Currency,
                 item.Quantity,
                 item.LineTotal)).ToList(),
+            fulfillments,
             order.CreatedAtUtc);
     }
 }

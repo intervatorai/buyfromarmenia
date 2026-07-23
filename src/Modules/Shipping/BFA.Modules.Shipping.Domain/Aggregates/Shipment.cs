@@ -71,6 +71,32 @@ public sealed class Shipment : AggregateRoot
         RaiseDomainEvent(new ShipmentStatusUpdatedDomainEvent(Id, CustomerOrderId, Status));
     }
 
+    /// <summary>
+    /// Admin override: move forward to a later (or equal) shipment status.
+    /// Rollback is not allowed.
+    /// </summary>
+    public void SetStatus(ShipmentStatus newStatus)
+    {
+        if (newStatus == Status)
+        {
+            return;
+        }
+
+        if ((int)newStatus < (int)Status)
+        {
+            throw new DomainException("Shipment status cannot move backwards.");
+        }
+
+        if (!Enum.IsDefined(newStatus))
+        {
+            throw new DomainException($"Unsupported shipment status '{newStatus}'.");
+        }
+
+        Status = newStatus;
+        UpdatedAtUtc = DateTime.UtcNow;
+        RaiseDomainEvent(new ShipmentStatusUpdatedDomainEvent(Id, CustomerOrderId, Status));
+    }
+
     private static string GenerateReferenceNumber()
     {
         return $"SHIP-{DateTime.UtcNow:yyyyMMdd}-{Random.Shared.Next(100000, 999999)}";

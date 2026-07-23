@@ -21,6 +21,12 @@ public sealed class CustomerOrderConfiguration : IEntityTypeConfiguration<Custom
         builder.Property(order => order.PaymentStatus).HasConversion<string>().HasMaxLength(24);
         builder.Property(order => order.FulfillmentStatus).HasConversion<string>().HasMaxLength(24);
         builder.Property(order => order.Subtotal).HasPrecision(18, 2);
+        builder.Property(order => order.EstimatedWeightKg).HasPrecision(18, 3);
+        builder.Property(order => order.ShippingFeeQuoted).HasPrecision(18, 2);
+        builder.Property(order => order.ShippingMarginPercent).HasPrecision(18, 2);
+        builder.Property(order => order.ShippingFee).HasPrecision(18, 2);
+        builder.Property(order => order.ShippingAdjustmentReason).HasMaxLength(500);
+        builder.Ignore(order => order.Total);
         builder.Property(order => order.Currency).HasMaxLength(3).IsRequired();
         builder.Property(order => order.CreatedAtUtc).IsRequired();
         builder.Property(order => order.UpdatedAtUtc).IsRequired();

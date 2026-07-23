@@ -1,5 +1,6 @@
 using BFA.Admin.Application.Commands.Shipping;
 using BFA.Admin.Application.Queries.Shipping;
+using BFA.BuildingBlocks.Domain;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -43,12 +44,40 @@ public sealed class LogisticsController : ControllerBase
     }
 
     [HttpPost("shipments/{id:guid}/advance")]
+    [Authorize(Policy = "ModeratorOrAbove")]
     public async Task<IActionResult> AdvanceShipment(
         Guid id,
         CancellationToken cancellationToken)
     {
-        var updated = await _mediator.Send(new AdvanceShipmentStatusCommand(id), cancellationToken);
-        return updated ? NoContent() : NotFound();
+        try
+        {
+            var updated = await _mediator.Send(new AdvanceShipmentStatusCommand(id), cancellationToken);
+            return updated ? NoContent() : NotFound();
+        }
+        catch (DomainException ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
+    }
+
+    [HttpPut("shipments/{id:guid}/status")]
+    [Authorize(Policy = "ModeratorOrAbove")]
+    public async Task<IActionResult> SetShipmentStatus(
+        Guid id,
+        [FromBody] SetShipmentStatusRequest request,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var result = await _mediator.Send(
+                new SetShipmentStatusCommand(id, request.Status),
+                cancellationToken);
+            return result is null ? NotFound() : Ok(result);
+        }
+        catch (DomainException ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
     }
 }
 
@@ -56,3 +85,5 @@ public record CreateShipmentRequest(
     Guid ConsolidationId,
     string Carrier,
     string CustomsDescription);
+
+public record SetShipmentStatusRequest(BFA.Modules.Shipping.Domain.Enums.ShipmentStatus Status);

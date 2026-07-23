@@ -151,6 +151,47 @@ public class ProductRepository : IProductRepository
 
     public async Task UpdateAsync(Product product, CancellationToken cancellationToken = default)
     {
+        // New variants on an existing product can be tracked as Modified (UPDATE 0 rows)
+        // after multi-collection loads — force INSERT when the row is not persisted yet.
+        var persistedVariantIds = await _dbContext.ProductVariants
+            .AsNoTracking()
+            .Where(variant => variant.ProductId == product.Id)
+            .Select(variant => variant.Id)
+            .ToListAsync(cancellationToken);
+
+        var currentVariantIds = product.Variants.Select(variant => variant.Id).ToHashSet();
+
+        foreach (var persistedId in persistedVariantIds.Where(id => !currentVariantIds.Contains(id)))
+        {
+            var tracked = _dbContext.ProductVariants.Local.FirstOrDefault(variant => variant.Id == persistedId)
+                ?? await _dbContext.ProductVariants.FirstOrDefaultAsync(
+                    variant => variant.Id == persistedId,
+                    cancellationToken);
+            if (tracked is not null)
+            {
+                _dbContext.ProductVariants.Remove(tracked);
+            }
+        }
+
+        foreach (var variant in product.Variants)
+        {
+            var entry = _dbContext.Entry(variant);
+            if (persistedVariantIds.Contains(variant.Id) || entry.State == EntityState.Added)
+            {
+                continue;
+            }
+
+            if (entry.State is EntityState.Modified or EntityState.Unchanged)
+            {
+                entry.State = EntityState.Detached;
+            }
+
+            if (entry.State == EntityState.Detached)
+            {
+                _dbContext.ProductVariants.Add(variant);
+            }
+        }
+
         await _dbContext.SaveChangesAsync(cancellationToken);
         product.ClearDomainEvents();
     }
@@ -159,6 +200,68 @@ public class ProductRepository : IProductRepository
     {
         _dbContext.Products.Remove(product);
         await _dbContext.SaveChangesAsync(cancellationToken);
+    }
+
+    public async Task<string> AllocateNextSkuAsync(
+        string prefix,
+        CancellationToken cancellationToken = default)
+    {
+        var normalized = new string(prefix.Trim().ToUpperInvariant().Where(char.IsLetter).ToArray());
+        if (normalized.Length is < 2 or > 4)
+        {
+            normalized = "PR";
+        }
+
+        var likePattern = normalized + "-%";
+        var existing = await _dbContext.Set<ProductVariant>()
+            .AsNoTracking()
+            .Where(variant => EF.Functions.ILike(variant.SupplierSku, likePattern))
+            .Select(variant => variant.SupplierSku)
+            .ToListAsync(cancellationToken);
+
+        var max = 0;
+        foreach (var sku in existing)
+        {
+            var dash = sku.LastIndexOf('-');
+            if (dash < 0 || dash == sku.Length - 1)
+            {
+                continue;
+            }
+
+            if (int.TryParse(sku[(dash + 1)..], out var number) && number > max)
+            {
+                max = number;
+            }
+        }
+
+        for (var attempt = 1; attempt <= 20; attempt++)
+        {
+            var candidate = $"{normalized}-{(max + attempt):D4}";
+            if (!await SupplierSkuExistsAsync(candidate, cancellationToken: cancellationToken))
+            {
+                return candidate;
+            }
+        }
+
+        return $"{normalized}-{DateTime.UtcNow:yyMMddHHmmss}";
+    }
+
+    public Task<bool> SupplierSkuExistsAsync(
+        string supplierSku,
+        Guid? excludeVariantId = null,
+        CancellationToken cancellationToken = default)
+    {
+        var normalized = supplierSku.Trim();
+        var query = _dbContext.Set<ProductVariant>()
+            .AsNoTracking()
+            .Where(variant => variant.SupplierSku.ToLower() == normalized.ToLower());
+
+        if (excludeVariantId.HasValue)
+        {
+            query = query.Where(variant => variant.Id != excludeVariantId.Value);
+        }
+
+        return query.AnyAsync(cancellationToken);
     }
 
     private async Task<List<Guid>> SearchPublishedIdsAsync(
@@ -225,7 +328,10 @@ public class ProductRepository : IProductRepository
 
     private IQueryable<Product> QueryWithDetails()
     {
+        // Multiple collection Includes without split queries cause a cartesian product
+        // and can leave child entities untracked/duplicated — SKU edits then silently no-op.
         return _dbContext.Products
+            .AsSplitQuery()
             .Include("_translations")
             .Include("_variants")
             .Include("_media.MediaAsset")

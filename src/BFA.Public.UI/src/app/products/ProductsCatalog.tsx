@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useLanguage } from "@/components/providers/LanguageProvider";
 import { PublicSiteLayout } from "@/components/layout/PublicSiteLayout";
@@ -13,6 +13,12 @@ import {
   type PublicProduct,
 } from "@/lib/api";
 import { getCartId } from "@/lib/cart-session";
+import {
+  catalogCacheKey,
+  getCachedCatalogProducts,
+  getLastCatalogProducts,
+  setCachedCatalogProducts,
+} from "@/lib/catalog-cache";
 
 function formatPrice(price: number, currency: string) {
   return new Intl.NumberFormat("en-US", {
@@ -29,13 +35,24 @@ export function ProductsCatalog({ initialCategorySlug }: ProductsCatalogProps) {
   const { translate, language } = useLanguage();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [products, setProducts] = useState<PublicProduct[]>([]);
+  const [isPending, startTransition] = useTransition();
+  const requestIdRef = useRef(0);
+
+  const resolvedCategory =
+    initialCategorySlug ?? searchParams.get("category") ?? "";
+  const resolvedSearch = searchParams.get("search") ?? "";
+  const initialKey = catalogCacheKey(resolvedCategory, resolvedSearch, language);
+  const initialProducts =
+    getCachedCatalogProducts(initialKey) ?? getLastCatalogProducts();
+
+  const [products, setProducts] = useState<PublicProduct[]>(initialProducts);
   const [categories, setCategories] = useState<PublicCategory[]>([]);
-  const [categorySlug, setCategorySlug] = useState(
-    initialCategorySlug ?? searchParams.get("category") ?? "",
+  const [categorySlug, setCategorySlug] = useState(resolvedCategory);
+  const [search, setSearch] = useState(resolvedSearch);
+  const [isInitialLoading, setIsInitialLoading] = useState(
+    initialProducts.length === 0,
   );
-  const [search, setSearch] = useState(searchParams.get("search") ?? "");
-  const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState("");
   const [wishlistProductIds, setWishlistProductIds] = useState<string[]>([]);
 
@@ -61,38 +78,72 @@ export function ProductsCatalog({ initialCategorySlug }: ProductsCatalogProps) {
   }, []);
 
   useEffect(() => {
-    async function loadProducts() {
-      setIsLoading(true);
-      setError("");
+    const key = catalogCacheKey(categorySlug, search, language);
+    const cached = getCachedCatalogProducts(key);
+    if (cached) {
+      setProducts(cached);
+      setIsInitialLoading(false);
+    }
 
+    const requestId = ++requestIdRef.current;
+    const hasVisibleProducts = (cached?.length ?? products.length) > 0;
+
+    if (hasVisibleProducts) {
+      setIsRefreshing(true);
+    } else {
+      setIsInitialLoading(true);
+    }
+    setError("");
+
+    async function loadProducts() {
       try {
         const params = new URLSearchParams();
         if (categorySlug) params.set("category", categorySlug);
         if (search) params.set("search", search);
         params.set("lang", language);
-        const query = `?${params.toString()}`;
-        const data = await apiFetch<PublicProduct[]>(`/api/products${query}`);
+        const data = await apiFetch<PublicProduct[]>(
+          `/api/products?${params.toString()}`,
+        );
+
+        if (requestId !== requestIdRef.current) {
+          return;
+        }
+
+        setCachedCatalogProducts(key, data);
         setProducts(data);
       } catch (err) {
+        if (requestId !== requestIdRef.current) {
+          return;
+        }
         setError(err instanceof ApiError ? err.message : "Failed to load products.");
       } finally {
-        setIsLoading(false);
+        if (requestId === requestIdRef.current) {
+          setIsInitialLoading(false);
+          setIsRefreshing(false);
+        }
       }
     }
 
     void loadProducts();
+    // products.length intentionally omitted — only react to filter changes
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [categorySlug, search, language]);
 
   function selectCategory(nextSlug: string) {
-    if (nextSlug) {
-      router.push(`/categories/${nextSlug}`);
-      return;
-    }
+    // Update UI immediately so the grid does not wait for route remount.
+    setCategorySlug(nextSlug);
 
-    const params = new URLSearchParams();
-    if (search) params.set("search", search);
-    const query = params.toString();
-    router.push(query ? `/products?${query}` : "/products");
+    startTransition(() => {
+      if (nextSlug) {
+        router.replace(`/categories/${nextSlug}`, { scroll: false });
+        return;
+      }
+
+      const params = new URLSearchParams();
+      if (search) params.set("search", search);
+      const query = params.toString();
+      router.replace(query ? `/products?${query}` : "/products", { scroll: false });
+    });
   }
 
   async function toggleFavorite(productId: string) {
@@ -109,6 +160,7 @@ export function ProductsCatalog({ initialCategorySlug }: ProductsCatalogProps) {
   }
 
   const hasActiveFilters = Boolean(categorySlug || search);
+  const showRefreshing = isRefreshing || isPending;
 
   return (
     <PublicSiteLayout>
@@ -157,7 +209,13 @@ export function ProductsCatalog({ initialCategorySlug }: ProductsCatalogProps) {
               <button
                 type="button"
                 className="catalog-clear-filters"
-                onClick={() => router.replace("/products")}
+                onClick={() => {
+                  setCategorySlug("");
+                  setSearch("");
+                  startTransition(() => {
+                    router.replace("/products", { scroll: false });
+                  });
+                }}
               >
                 {translate("clearFilters")}
               </button>
@@ -167,24 +225,32 @@ export function ProductsCatalog({ initialCategorySlug }: ProductsCatalogProps) {
           <div className="catalog-results">
             <div className="catalog-results-header">
               <h1>{translate("productCatalog")}</h1>
-              {!isLoading && !error ? (
+              {!isInitialLoading && !error ? (
                 <p className="catalog-results-count">
                   {products.length} {translate("products")}
+                  {showRefreshing ? " · …" : ""}
                 </p>
               ) : null}
             </div>
 
-            {isLoading ? (
+            {isInitialLoading ? (
               <p className="catalog-message">{translate("loadingProducts")}</p>
             ) : null}
             {error ? <p className="catalog-message catalog-error">{error}</p> : null}
 
-            {!isLoading && !error && products.length === 0 ? (
+            {!isInitialLoading && !error && products.length === 0 ? (
               <p className="catalog-message">{translate("noProductsYet")}</p>
             ) : null}
 
-            {!isLoading && products.length > 0 ? (
-              <div className="product-grid catalog-grid">
+            {products.length > 0 ? (
+              <div
+                className="product-grid catalog-grid"
+                style={{
+                  opacity: showRefreshing ? 0.72 : 1,
+                  transition: "opacity 0.18s ease",
+                }}
+                aria-busy={showRefreshing}
+              >
                 {products.map((product) => {
                   const isFavorite = wishlistProductIds.includes(product.id);
                   return (

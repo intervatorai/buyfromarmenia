@@ -31,16 +31,24 @@ public sealed class CategoriesController : ControllerBase
         [FromBody] CreateCategoryRequest request,
         CancellationToken cancellationToken)
     {
-        var id = await _mediator.Send(
-            new CreateCategoryCommand(
-                request.Name,
-                request.Slug,
-                request.Description,
-                request.SortOrder,
-                request.ParentCategoryId),
-            cancellationToken);
+        try
+        {
+            var id = await _mediator.Send(
+                new CreateCategoryCommand(
+                    request.Name,
+                    request.Slug,
+                    request.Description,
+                    request.SortOrder,
+                    request.ParentCategoryId,
+                    SkuPrefix: request.SkuPrefix),
+                cancellationToken);
 
-        return CreatedAtAction(nameof(GetCategories), new { id }, new { id });
+            return CreatedAtAction(nameof(GetCategories), new { id }, new { id });
+        }
+        catch (BFA.BuildingBlocks.Domain.DomainException ex)
+        {
+            return BadRequest(ex.Message);
+        }
     }
 
     [HttpPut("{id:guid}")]
@@ -50,17 +58,25 @@ public sealed class CategoriesController : ControllerBase
         [FromBody] UpdateCategoryRequest request,
         CancellationToken cancellationToken)
     {
-        var updated = await _mediator.Send(
-            new UpdateCategoryCommand(
-                id,
-                request.Name,
-                request.Slug,
-                request.Description,
-                request.SortOrder,
-                request.ParentCategoryId),
-            cancellationToken);
+        try
+        {
+            var updated = await _mediator.Send(
+                new UpdateCategoryCommand(
+                    id,
+                    request.Name,
+                    request.Slug,
+                    request.Description,
+                    request.SortOrder,
+                    request.ParentCategoryId,
+                    SkuPrefix: request.SkuPrefix),
+                cancellationToken);
 
-        return updated ? NoContent() : NotFound();
+            return updated ? NoContent() : NotFound();
+        }
+        catch (BFA.BuildingBlocks.Domain.DomainException ex)
+        {
+            return BadRequest(ex.Message);
+        }
     }
 
     [HttpPost("seed-defaults")]
@@ -93,11 +109,13 @@ public record CreateCategoryRequest(
     string Slug,
     string? Description = null,
     int SortOrder = 0,
-    Guid? ParentCategoryId = null);
+    Guid? ParentCategoryId = null,
+    string? SkuPrefix = null);
 
 public record UpdateCategoryRequest(
     string Name,
     string Slug,
     string? Description = null,
     int SortOrder = 0,
-    Guid? ParentCategoryId = null);
+    Guid? ParentCategoryId = null,
+    string? SkuPrefix = null);

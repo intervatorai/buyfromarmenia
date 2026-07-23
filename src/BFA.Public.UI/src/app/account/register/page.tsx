@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { FormEvent, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { PublicSiteLayout } from "@/components/layout/PublicSiteLayout";
 import { useAuth } from "@/components/providers/AuthProvider";
 import { useLanguage } from "@/components/providers/LanguageProvider";
@@ -15,6 +16,12 @@ import {
 export default function RegisterPage() {
   const { translate } = useLanguage();
   const { register } = useAuth();
+  const searchParams = useSearchParams();
+  const returnTo = searchParams.get("returnTo");
+  const loginHref =
+    returnTo && returnTo.startsWith("/")
+      ? `/account/login?returnTo=${encodeURIComponent(returnTo)}`
+      : "/account/login";
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [phoneCountryIso, setPhoneCountryIso] = useState(DEFAULT_PHONE_COUNTRY_ISO);
@@ -125,7 +132,7 @@ export default function RegisterPage() {
 
           <p className="auth-switch">
             {translate("alreadyHaveAccount")}{" "}
-            <Link href="/account/login">{translate("signIn")}</Link>
+            <Link href={loginHref}>{translate("signIn")}</Link>
           </p>
         </div>
       </section>

@@ -26,7 +26,14 @@ export default function CartPage() {
     setError("");
 
     try {
-      setCart(await apiFetch<PublicCart>(`/api/carts/${getCartId()}`));
+      const data = await apiFetch<PublicCart>(`/api/carts/${getCartId()}`);
+      setCart(data);
+      if ((data.removedUnavailableItems ?? 0) > 0) {
+        notifyCartUpdated();
+        setError(
+          "Some items are no longer available and were removed from your cart.",
+        );
+      }
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Failed to load cart.");
     } finally {

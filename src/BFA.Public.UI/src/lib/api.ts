@@ -32,8 +32,15 @@ export async function apiFetch<T>(
   });
 
   if (!response.ok) {
-    const message = await response.text();
-    throw new ApiError(message || response.statusText, response.status);
+    const text = await response.text();
+    let message = text || response.statusText;
+    try {
+      const parsed = JSON.parse(text) as { error?: string; message?: string; title?: string };
+      message = parsed.error || parsed.message || parsed.title || message;
+    } catch {
+      // keep raw text
+    }
+    throw new ApiError(message, response.status);
   }
 
   if (response.status === 204) {
@@ -111,6 +118,7 @@ export type PublicCart = {
   totalQuantity: number;
   subtotal: number;
   currency: string;
+  removedUnavailableItems?: number;
 };
 
 export type PublicOrderSummary = {
@@ -124,6 +132,12 @@ export type PublicOrderSummary = {
   currency: string;
   itemsCount: number;
   createdAtUtc: string;
+};
+
+export type PublicSupplierFulfillment = {
+  status: string;
+  itemsCount: number;
+  productNames: string[];
 };
 
 export type PublicOrderDetail = {
@@ -155,5 +169,6 @@ export type PublicOrderDetail = {
     quantity: number;
     lineTotal: number;
   }>;
+  supplierFulfillments: PublicSupplierFulfillment[];
   createdAtUtc: string;
 };

@@ -32,13 +32,16 @@ public record UpdateProductCommand(
 public class UpdateProductCommandHandler : IRequestHandler<UpdateProductCommand, bool>
 {
     private readonly IProductRepository _productRepository;
+    private readonly ICategoryRepository _categoryRepository;
     private readonly IProductSearchKeywordGenerator _keywordGenerator;
 
     public UpdateProductCommandHandler(
         IProductRepository productRepository,
+        ICategoryRepository categoryRepository,
         IProductSearchKeywordGenerator keywordGenerator)
     {
         _productRepository = productRepository;
+        _categoryRepository = categoryRepository;
         _keywordGenerator = keywordGenerator;
     }
 
@@ -75,11 +78,30 @@ public class UpdateProductCommandHandler : IRequestHandler<UpdateProductCommand,
 
         product.AssignCategory(request.CategoryId);
 
-        if (!string.IsNullOrWhiteSpace(request.SupplierSku) && request.VariantWeight is > 0)
+        var shouldUpsertVariant =
+            !string.IsNullOrWhiteSpace(request.SupplierSku)
+            || request.VariantWeight is > 0
+            || product.Variants.Count == 0;
+
+        if (shouldUpsertVariant)
         {
+            var existing = product.Variants.FirstOrDefault();
+            var weight = request.VariantWeight is > 0
+                ? request.VariantWeight.Value
+                : existing?.Weight ?? 0.5m;
+            var sku = !string.IsNullOrWhiteSpace(request.SupplierSku)
+                ? request.SupplierSku.Trim().ToUpperInvariant()
+                : existing?.SupplierSku
+                  ?? await ProductSkuAssigner.ResolveAsync(
+                      null,
+                      request.CategoryId ?? product.CategoryId,
+                      _categoryRepository,
+                      _productRepository,
+                      cancellationToken);
+
             product.UpsertDefaultVariant(
-                request.SupplierSku,
-                request.VariantWeight.Value,
+                sku,
+                weight,
                 request.CountryOfOrigin,
                 size: request.VariantSize,
                 color: request.VariantColor);

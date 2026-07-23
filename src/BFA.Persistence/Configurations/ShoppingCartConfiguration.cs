@@ -38,6 +38,7 @@ public sealed class ShoppingCartItemConfiguration
     {
         builder.ToTable("shopping_cart_items", "shopping");
         builder.HasKey(item => item.Id);
+        builder.Property(item => item.Id).ValueGeneratedNever();
         builder.Property(item => item.ProductName).HasMaxLength(300).IsRequired();
         builder.Property(item => item.ImageUrl).HasMaxLength(2048);
         builder.Property(item => item.UnitPrice).HasPrecision(18, 2);
@@ -54,6 +55,7 @@ public sealed class WishlistItemConfiguration : IEntityTypeConfiguration<Wishlis
     {
         builder.ToTable("wishlist_items", "shopping");
         builder.HasKey(item => item.Id);
+        builder.Property(item => item.Id).ValueGeneratedNever();
         builder.HasIndex(item => new { item.ShoppingCartId, item.ProductId })
             .IsUnique();
     }

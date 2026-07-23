@@ -1,3 +1,4 @@
+using BFA.BuildingBlocks.Domain;
 using BFA.Supplier.Application.Commands.Products;
 using BFA.Supplier.Application.Queries.Products;
 using MediatR;
@@ -124,19 +125,46 @@ public class ProductsController : ControllerBase
         [FromBody] AddVariantRequest request,
         CancellationToken cancellationToken)
     {
-        var added = await _mediator.Send(
-            new AddProductVariantCommand(
-                request.SupplierId,
-                id,
-                request.SupplierSku,
-                request.Weight,
-                request.CountryOfOrigin,
-                request.Barcode,
-                request.Size,
-                request.Color),
-            cancellationToken);
+        try
+        {
+            var added = await _mediator.Send(
+                new AddProductVariantCommand(
+                    request.SupplierId,
+                    id,
+                    request.SupplierSku,
+                    request.Weight,
+                    request.CountryOfOrigin,
+                    request.Barcode,
+                    request.Size,
+                    request.Color),
+                cancellationToken);
 
-        return added ? NoContent() : NotFound();
+            return added ? NoContent() : NotFound();
+        }
+        catch (DomainException ex)
+        {
+            return BadRequest(ex.Message);
+        }
+    }
+
+    [HttpDelete("{id:guid}/variants/{variantId:guid}")]
+    public async Task<IActionResult> DeleteVariant(
+        Guid id,
+        Guid variantId,
+        [FromQuery] Guid supplierId,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var deleted = await _mediator.Send(
+                new DeleteProductVariantCommand(supplierId, id, variantId),
+                cancellationToken);
+            return deleted ? NoContent() : NotFound();
+        }
+        catch (DomainException ex)
+        {
+            return BadRequest(ex.Message);
+        }
     }
 
     [HttpPost("{id:guid}/media")]
@@ -165,21 +193,47 @@ public class ProductsController : ControllerBase
         [FromBody] SetShippingRequest request,
         CancellationToken cancellationToken)
     {
-        var updated = await _mediator.Send(
-            new SetProductShippingProfileCommand(
-                request.SupplierId,
-                id,
-                request.NetWeight,
-                request.GrossWeight,
-                request.PackageLength,
-                request.PackageWidth,
-                request.PackageHeight,
-                request.PackageDimensionUnit,
-                request.IsFragile,
-                request.IsPerishable),
-            cancellationToken);
+        try
+        {
+            var updated = await _mediator.Send(
+                new SetProductShippingProfileCommand(
+                    request.SupplierId,
+                    id,
+                    request.NetWeight,
+                    request.GrossWeight,
+                    request.PackageLength,
+                    request.PackageWidth,
+                    request.PackageHeight,
+                    request.PackageDimensionUnit,
+                    request.IsFragile,
+                    request.IsPerishable),
+                cancellationToken);
 
-        return updated ? NoContent() : NotFound();
+            return updated ? NoContent() : NotFound();
+        }
+        catch (DomainException ex)
+        {
+            return BadRequest(ex.Message);
+        }
+    }
+
+    [HttpDelete("{id:guid}/shipping")]
+    public async Task<IActionResult> ClearShipping(
+        Guid id,
+        [FromQuery] Guid supplierId,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var cleared = await _mediator.Send(
+                new ClearProductShippingProfileCommand(supplierId, id),
+                cancellationToken);
+            return cleared ? NoContent() : NotFound();
+        }
+        catch (DomainException ex)
+        {
+            return BadRequest(ex.Message);
+        }
     }
 
     [HttpPost("{id:guid}/submit")]
@@ -303,9 +357,9 @@ public record UpdateProductRequest(
 
 public record AddVariantRequest(
     Guid SupplierId,
-    string SupplierSku,
     decimal Weight,
     string CountryOfOrigin,
+    string? SupplierSku = null,
     string? Barcode = null,
     string? Size = null,
     string? Color = null);
