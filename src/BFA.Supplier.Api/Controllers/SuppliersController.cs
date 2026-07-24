@@ -132,6 +132,49 @@ public class SuppliersController : ControllerBase
         return added ? NoContent() : NotFound();
     }
 
+    [HttpPut("{id:guid}/bank-accounts/{bankAccountId:guid}")]
+    public async Task<IActionResult> UpdateBankAccount(
+        Guid id,
+        Guid bankAccountId,
+        [FromBody] AddBankAccountRequest request,
+        CancellationToken cancellationToken)
+    {
+        var result = await _mediator.Send(
+            new UpdateSupplierBankAccountCommand(
+                id,
+                bankAccountId,
+                request.BankName,
+                request.AccountHolder,
+                request.Iban,
+                request.Currency,
+                request.Swift,
+                request.IsPrimary),
+            cancellationToken);
+
+        return result.Success
+            ? NoContent()
+            : result.Error == "Supplier not found."
+                ? NotFound()
+                : BadRequest(new { message = result.Error });
+    }
+
+    [HttpDelete("{id:guid}/bank-accounts/{bankAccountId:guid}")]
+    public async Task<IActionResult> RemoveBankAccount(
+        Guid id,
+        Guid bankAccountId,
+        CancellationToken cancellationToken)
+    {
+        var result = await _mediator.Send(
+            new RemoveSupplierBankAccountCommand(id, bankAccountId),
+            cancellationToken);
+
+        return result.Success
+            ? NoContent()
+            : result.Error == "Supplier not found."
+                ? NotFound()
+                : BadRequest(new { message = result.Error });
+    }
+
     [HttpPost("{id:guid}/documents")]
     public async Task<IActionResult> AddDocument(
         Guid id,
@@ -150,6 +193,46 @@ public class SuppliersController : ControllerBase
         {
             return BadRequest(new { message = ex.Message });
         }
+    }
+
+    [HttpPut("{id:guid}/documents/{documentId:guid}")]
+    public async Task<IActionResult> UpdateDocument(
+        Guid id,
+        Guid documentId,
+        [FromBody] AddDocumentRequest request,
+        CancellationToken cancellationToken)
+    {
+        var result = await _mediator.Send(
+            new UpdateSupplierDocumentCommand(
+                id,
+                documentId,
+                request.DocumentType,
+                request.FileName,
+                request.FileUrl),
+            cancellationToken);
+
+        return result.Success
+            ? NoContent()
+            : result.Error == "Supplier not found."
+                ? NotFound()
+                : BadRequest(new { message = result.Error });
+    }
+
+    [HttpDelete("{id:guid}/documents/{documentId:guid}")]
+    public async Task<IActionResult> RemoveDocument(
+        Guid id,
+        Guid documentId,
+        CancellationToken cancellationToken)
+    {
+        var result = await _mediator.Send(
+            new RemoveSupplierDocumentCommand(id, documentId),
+            cancellationToken);
+
+        return result.Success
+            ? NoContent()
+            : result.Error == "Supplier not found."
+                ? NotFound()
+                : BadRequest(new { message = result.Error });
     }
 }
 

@@ -47,6 +47,25 @@ public sealed class SupplierDocument : Entity
         VerifiedAt = DateTime.UtcNow;
     }
 
+    internal void Update(SupplierDocumentType documentType, string fileName, string fileUrl)
+    {
+        if (string.IsNullOrWhiteSpace(fileName))
+        {
+            throw new DomainException("Document file name is required.");
+        }
+
+        if (string.IsNullOrWhiteSpace(fileUrl))
+        {
+            throw new DomainException("Document file URL is required.");
+        }
+
+        DocumentType = documentType;
+        FileName = fileName.Trim();
+        FileUrl = fileUrl.Trim();
+        Status = SupplierDocumentStatus.Pending;
+        VerifiedAt = null;
+    }
+
     internal void Reject()
     {
         Status = SupplierDocumentStatus.Rejected;

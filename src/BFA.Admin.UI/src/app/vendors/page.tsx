@@ -2,10 +2,11 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
+import { Fragment, useCallback, useEffect, useState } from "react";
 import { AdminShell } from "@/components/layout/AdminShell";
 import { PromptModal } from "@/components/ui/PromptModal";
 import { VendorFormModal } from "@/components/ui/VendorFormModal";
+import { VendorSubpanels } from "@/components/ui/VendorSubpanels";
 import { ApiError, apiFetch } from "@/lib/api";
 
 type SupplierListItem = {
@@ -30,6 +31,7 @@ export default function VendorsPage() {
   const [formOpen, setFormOpen] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
   const [rejectId, setRejectId] = useState<string | null>(null);
+  const [expandedId, setExpandedId] = useState("");
 
   const loadSuppliers = useCallback(async () => {
     setIsLoading(true);
@@ -93,6 +95,7 @@ export default function VendorsPage() {
         <table className="admin-table">
           <thead>
             <tr>
+              <th className="product-expand-cell" aria-label="Expand" />
               <th>Company</th>
               <th>Contact</th>
               <th>Status</th>
@@ -104,62 +107,94 @@ export default function VendorsPage() {
           <tbody>
             {suppliers.length === 0 ? (
               <tr>
-                <td colSpan={6}>No suppliers found.</td>
+                <td colSpan={7}>No suppliers found.</td>
               </tr>
             ) : (
-              suppliers.map((supplier) => (
-                <tr key={supplier.id}>
-                  <td>
-                    <Link href={`/vendors/${supplier.id}`}>
-                      <strong>{supplier.tradingName}</strong>
-                    </Link>
-                    <br />
-                    <span style={{ color: "#9ca3af", fontSize: 12 }}>{supplier.legalName}</span>
-                  </td>
-                  <td>
-                    {supplier.contactPerson}
-                    <br />
-                    <span style={{ color: "#9ca3af", fontSize: 12 }}>{supplier.email}</span>
-                  </td>
-                  <td>{supplier.status}</td>
-                  <td>{supplier.documentsCount}</td>
-                  <td>{supplier.bankAccountsCount}</td>
-                  <td style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                    <Link href={`/vendors/${supplier.id}`} className="button-ghost">
-                      Open
-                    </Link>
-                    <button
-                      type="button"
-                      className="button-ghost"
-                      onClick={() => {
-                        setEditId(supplier.id);
-                        setFormOpen(true);
-                      }}
-                    >
-                      Edit
-                    </button>
-                    {(supplier.status === "ApplicationSubmitted"
-                      || supplier.status === "UnderReview") && (
-                      <>
+              suppliers.map((supplier) => {
+                const isExpanded = expandedId === supplier.id;
+                return (
+                  <Fragment key={supplier.id}>
+                    <tr>
+                      <td className="product-expand-cell">
                         <button
                           type="button"
-                          className="button-primary"
-                          onClick={() => void handleApprove(supplier.id)}
+                          className="product-expand-btn"
+                          aria-expanded={isExpanded}
+                          aria-label={isExpanded ? "Collapse vendor" : "Expand vendor"}
+                          onClick={() =>
+                            setExpandedId((current) =>
+                              current === supplier.id ? "" : supplier.id,
+                            )
+                          }
                         >
-                          Approve
+                          {isExpanded ? "▾" : "▸"}
                         </button>
+                      </td>
+                      <td>
+                        <Link href={`/vendors/${supplier.id}`}>
+                          <strong>{supplier.tradingName}</strong>
+                        </Link>
+                        <br />
+                        <span style={{ color: "#9ca3af", fontSize: 12 }}>{supplier.legalName}</span>
+                      </td>
+                      <td>
+                        {supplier.contactPerson}
+                        <br />
+                        <span style={{ color: "#9ca3af", fontSize: 12 }}>{supplier.email}</span>
+                      </td>
+                      <td>{supplier.status}</td>
+                      <td>{supplier.documentsCount}</td>
+                      <td>{supplier.bankAccountsCount}</td>
+                      <td style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                        <Link href={`/vendors/${supplier.id}`} className="button-ghost">
+                          Open
+                        </Link>
                         <button
                           type="button"
                           className="button-ghost"
-                          onClick={() => setRejectId(supplier.id)}
+                          onClick={() => {
+                            setEditId(supplier.id);
+                            setFormOpen(true);
+                          }}
                         >
-                          Reject
+                          Edit
                         </button>
-                      </>
-                    )}
-                  </td>
-                </tr>
-              ))
+                        {(supplier.status === "ApplicationSubmitted"
+                          || supplier.status === "UnderReview") && (
+                          <>
+                            <button
+                              type="button"
+                              className="button-primary"
+                              onClick={() => void handleApprove(supplier.id)}
+                            >
+                              Approve
+                            </button>
+                            <button
+                              type="button"
+                              className="button-ghost"
+                              onClick={() => setRejectId(supplier.id)}
+                            >
+                              Reject
+                            </button>
+                          </>
+                        )}
+                      </td>
+                    </tr>
+                    {isExpanded ? (
+                      <tr className="product-expand-row">
+                        <td colSpan={7}>
+                          <VendorSubpanels
+                            vendorId={supplier.id}
+                            collapsible={false}
+                            defaultOpen
+                            onChanged={() => void loadSuppliers()}
+                          />
+                        </td>
+                      </tr>
+                    ) : null}
+                  </Fragment>
+                );
+              })
             )}
           </tbody>
         </table>

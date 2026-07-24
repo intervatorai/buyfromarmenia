@@ -132,6 +132,152 @@ public class SuppliersController : ControllerBase
         var activated = await _mediator.Send(new ActivateSupplierCommand(id), cancellationToken);
         return activated ? NoContent() : NotFound();
     }
+
+    [HttpPost("{id:guid}/bank-accounts")]
+    [Authorize(Policy = "ModeratorOrAbove")]
+    public async Task<IActionResult> AddBankAccount(
+        Guid id,
+        [FromBody] AddSupplierBankAccountRequest request,
+        CancellationToken cancellationToken)
+    {
+        var added = await _mediator.Send(
+            new AddSupplierBankAccountCommand(
+                id,
+                request.BankName,
+                request.AccountHolder,
+                request.Iban,
+                request.Currency,
+                request.Swift,
+                request.IsPrimary),
+            cancellationToken);
+
+        return added ? NoContent() : NotFound();
+    }
+
+    [HttpPut("{id:guid}/bank-accounts/{bankAccountId:guid}")]
+    [Authorize(Policy = "ModeratorOrAbove")]
+    public async Task<IActionResult> UpdateBankAccount(
+        Guid id,
+        Guid bankAccountId,
+        [FromBody] AddSupplierBankAccountRequest request,
+        CancellationToken cancellationToken)
+    {
+        var result = await _mediator.Send(
+            new UpdateSupplierBankAccountCommand(
+                id,
+                bankAccountId,
+                request.BankName,
+                request.AccountHolder,
+                request.Iban,
+                request.Currency,
+                request.Swift,
+                request.IsPrimary),
+            cancellationToken);
+
+        return result.Success
+            ? NoContent()
+            : result.Error == "Supplier not found."
+                ? NotFound()
+                : BadRequest(new { message = result.Error });
+    }
+
+    [HttpDelete("{id:guid}/bank-accounts/{bankAccountId:guid}")]
+    [Authorize(Policy = "ModeratorOrAbove")]
+    public async Task<IActionResult> RemoveBankAccount(
+        Guid id,
+        Guid bankAccountId,
+        CancellationToken cancellationToken)
+    {
+        var result = await _mediator.Send(
+            new RemoveSupplierBankAccountCommand(id, bankAccountId),
+            cancellationToken);
+
+        return result.Success
+            ? NoContent()
+            : result.Error == "Supplier not found."
+                ? NotFound()
+                : BadRequest(new { message = result.Error });
+    }
+
+    [HttpPost("{id:guid}/documents")]
+    [Authorize(Policy = "ModeratorOrAbove")]
+    public async Task<IActionResult> AddDocument(
+        Guid id,
+        [FromBody] SupplierDocumentRequest request,
+        CancellationToken cancellationToken)
+    {
+        var result = await _mediator.Send(
+            new AddSupplierDocumentCommand(
+                id,
+                request.DocumentType,
+                request.FileName,
+                request.FileUrl),
+            cancellationToken);
+
+        return result.Success
+            ? NoContent()
+            : result.Error == "Supplier not found."
+                ? NotFound()
+                : BadRequest(new { message = result.Error });
+    }
+
+    [HttpPut("{id:guid}/documents/{documentId:guid}")]
+    [Authorize(Policy = "ModeratorOrAbove")]
+    public async Task<IActionResult> UpdateDocument(
+        Guid id,
+        Guid documentId,
+        [FromBody] SupplierDocumentRequest request,
+        CancellationToken cancellationToken)
+    {
+        var result = await _mediator.Send(
+            new UpdateSupplierDocumentCommand(
+                id,
+                documentId,
+                request.DocumentType,
+                request.FileName,
+                request.FileUrl),
+            cancellationToken);
+
+        return result.Success
+            ? NoContent()
+            : result.Error == "Supplier not found."
+                ? NotFound()
+                : BadRequest(new { message = result.Error });
+    }
+
+    [HttpDelete("{id:guid}/documents/{documentId:guid}")]
+    [Authorize(Policy = "ModeratorOrAbove")]
+    public async Task<IActionResult> RemoveDocument(
+        Guid id,
+        Guid documentId,
+        CancellationToken cancellationToken)
+    {
+        var result = await _mediator.Send(
+            new RemoveSupplierDocumentCommand(id, documentId),
+            cancellationToken);
+
+        return result.Success
+            ? NoContent()
+            : result.Error == "Supplier not found."
+                ? NotFound()
+                : BadRequest(new { message = result.Error });
+    }
+
+    [HttpPost("{id:guid}/set-password")]
+    [Authorize(Policy = "ModeratorOrAbove")]
+    public async Task<IActionResult> SetPassword(
+        Guid id,
+        [FromBody] SetSupplierPasswordRequest request,
+        CancellationToken cancellationToken)
+    {
+        var result = await _mediator.Send(
+            new SetSupplierPasswordCommand(id, request.NewPassword),
+            cancellationToken);
+
+        return result.Success
+            ? Ok(new { message = "Password updated." })
+            : BadRequest(new { message = result.Error });
+    }
 }
 
 public record RejectSupplierRequest(string Reason);
@@ -154,3 +300,18 @@ public record UpdateSupplierRequest(
     string Phone,
     string? TaxNumber = null,
     string? RegistrationNumber = null);
+
+public record AddSupplierBankAccountRequest(
+    string BankName,
+    string AccountHolder,
+    string Iban,
+    string Currency,
+    string? Swift = null,
+    bool IsPrimary = true);
+
+public record SupplierDocumentRequest(
+    string DocumentType,
+    string FileName,
+    string FileUrl);
+
+public record SetSupplierPasswordRequest(string NewPassword);

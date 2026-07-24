@@ -175,6 +175,60 @@ public sealed class Supplier : AggregateRoot
         return bankAccount;
     }
 
+    public void UpdateBankAccount(
+        Guid bankAccountId,
+        BankAccountDetails details,
+        bool isPrimary)
+    {
+        var bankAccount = _bankAccounts.FirstOrDefault(account => account.Id == bankAccountId)
+            ?? throw new DomainException("Bank account not found.");
+
+        if (isPrimary)
+        {
+            foreach (var account in _bankAccounts.Where(a => a.IsPrimary && a.Id != bankAccountId))
+            {
+                account.SetPrimary(false);
+            }
+        }
+
+        bankAccount.Update(details);
+        bankAccount.SetPrimary(isPrimary);
+        UpdatedAt = DateTime.UtcNow;
+        RaiseDomainEvent(new SupplierBankAccountChangedDomainEvent(Id));
+    }
+
+    public void RemoveBankAccount(Guid bankAccountId)
+    {
+        var bankAccount = _bankAccounts.FirstOrDefault(account => account.Id == bankAccountId)
+            ?? throw new DomainException("Bank account not found.");
+
+        _bankAccounts.Remove(bankAccount);
+        UpdatedAt = DateTime.UtcNow;
+        RaiseDomainEvent(new SupplierBankAccountChangedDomainEvent(Id));
+    }
+
+    public void UpdateDocument(
+        Guid documentId,
+        SupplierDocumentType documentType,
+        string fileName,
+        string fileUrl)
+    {
+        var document = _documents.FirstOrDefault(item => item.Id == documentId)
+            ?? throw new DomainException("Document not found.");
+
+        document.Update(documentType, fileName, fileUrl);
+        UpdatedAt = DateTime.UtcNow;
+    }
+
+    public void RemoveDocument(Guid documentId)
+    {
+        var document = _documents.FirstOrDefault(item => item.Id == documentId)
+            ?? throw new DomainException("Document not found.");
+
+        _documents.Remove(document);
+        UpdatedAt = DateTime.UtcNow;
+    }
+
     public void SubmitApplication()
     {
         if (Status is not (SupplierStatus.Draft or SupplierStatus.ChangesRequested))

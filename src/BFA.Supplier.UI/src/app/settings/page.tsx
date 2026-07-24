@@ -2,6 +2,7 @@
 
 import { FormEvent, useEffect, useState } from "react";
 import { SupplierShell } from "@/components/layout/SupplierShell";
+import { SupplierCompliancePanels } from "@/components/settings/SupplierCompliancePanels";
 import { ApiError, apiFetch } from "@/lib/api";
 import { getSupplierId } from "@/lib/supplier-session";
 
@@ -102,6 +103,7 @@ function mapSupplierToForm(supplier: SupplierDetail): SettingsForm {
 
 export default function SettingsPage() {
   const [form, setForm] = useState<SettingsForm>(emptyForm);
+  const [supplierId, setSupplierId] = useState("");
   const [status, setStatus] = useState("");
   const [error, setError] = useState("");
   const [savedMessage, setSavedMessage] = useState("");
@@ -122,6 +124,8 @@ export default function SettingsPage() {
         setIsLoading(false);
         return;
       }
+
+      setSupplierId(supplierId);
 
       try {
         const supplier = await apiFetch<SupplierDetail>(`/api/suppliers/${supplierId}`);
@@ -405,6 +409,8 @@ export default function SettingsPage() {
           </form>
         ) : null}
       </div>
+
+      {supplierId ? <SupplierCompliancePanels supplierId={supplierId} /> : null}
 
       <div className="supplier-card">
         <h2 style={{ fontSize: 16, margin: "0 0 12px" }}>Change password</h2>

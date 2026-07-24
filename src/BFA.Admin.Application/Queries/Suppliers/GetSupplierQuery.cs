@@ -15,6 +15,7 @@ public record SupplierDetailDto(
     string Phone,
     string? TaxNumber,
     string? RegistrationNumber,
+    bool HasPortalLogin,
     DateTime CreatedAt,
     DateTime? UpdatedAt,
     IReadOnlyList<SupplierDocumentDto> Documents,
@@ -56,6 +57,11 @@ public sealed class GetSupplierQueryHandler : IRequestHandler<GetSupplierQuery, 
             return null;
         }
 
+        var hasPortalLogin = supplier.Members.Any(member =>
+            member.IsActive
+            && member.Role == Modules.Suppliers.Domain.Enums.SupplierMemberRole.Owner
+            && member.UserId.HasValue);
+
         return new SupplierDetailDto(
             supplier.Id,
             supplier.LegalName,
@@ -66,6 +72,7 @@ public sealed class GetSupplierQueryHandler : IRequestHandler<GetSupplierQuery, 
             supplier.Contact.Phone,
             supplier.TaxNumber,
             supplier.RegistrationNumber,
+            hasPortalLogin,
             supplier.CreatedAt,
             supplier.UpdatedAt,
             supplier.Documents.Select(document => new SupplierDocumentDto(

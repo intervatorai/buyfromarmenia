@@ -2,10 +2,11 @@
 
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
+import { FormEvent, useCallback, useEffect, useState } from "react";
 import { AdminShell } from "@/components/layout/AdminShell";
 import { PromptModal } from "@/components/ui/PromptModal";
 import { VendorFormModal } from "@/components/ui/VendorFormModal";
+import { VendorSubpanels } from "@/components/ui/VendorSubpanels";
 import { ApiError, apiFetch } from "@/lib/api";
 
 type SupplierDetail = {
@@ -16,22 +17,7 @@ type SupplierDetail = {
   contactPerson: string;
   email: string;
   phone: string;
-  documents: Array<{
-    id: string;
-    documentType: string;
-    fileName: string;
-    fileUrl: string;
-    status: string;
-  }>;
-  bankAccounts: Array<{
-    id: string;
-    bankName: string;
-    accountHolder: string;
-    iban: string;
-    swift?: string | null;
-    currency: string;
-    isPrimary: boolean;
-  }>;
+  hasPortalLogin: boolean;
 };
 
 type PromptKind = "reject" | "request-changes" | "suspend" | null;
@@ -44,6 +30,12 @@ export default function VendorDetailPage() {
   const [busy, setBusy] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [promptKind, setPromptKind] = useState<PromptKind>(null);
+
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [passwordError, setPasswordError] = useState("");
+  const [passwordSuccess, setPasswordSuccess] = useState("");
+  const [isSavingPassword, setIsSavingPassword] = useState(false);
 
   const load = useCallback(async () => {
     setIsLoading(true);
@@ -74,6 +66,46 @@ export default function VendorDetailPage() {
       setError(err instanceof ApiError ? err.message : "Action failed.");
     } finally {
       setBusy(false);
+    }
+  }
+
+  async function handleSetPassword(event: FormEvent) {
+    event.preventDefault();
+    if (!supplier) {
+      return;
+    }
+
+    setPasswordError("");
+    setPasswordSuccess("");
+
+    if (newPassword.length < 6) {
+      setPasswordError("Password must be at least 6 characters.");
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      setPasswordError("Password and confirmation do not match.");
+      return;
+    }
+
+    setIsSavingPassword(true);
+    try {
+      await apiFetch(`/api/suppliers/${supplier.id}/set-password`, {
+        method: "POST",
+        body: JSON.stringify({ newPassword }),
+      });
+      setNewPassword("");
+      setConfirmPassword("");
+      setPasswordSuccess(
+        supplier.hasPortalLogin
+          ? "Password updated."
+          : "Portal login created and password set.",
+      );
+      await load();
+    } catch (err) {
+      setPasswordError(err instanceof ApiError ? err.message : "Failed to set password.");
+    } finally {
+      setIsSavingPassword(false);
     }
   }
 
@@ -108,6 +140,10 @@ export default function VendorDetailPage() {
                 <br />
                 {supplier.phone}
               </div>
+            </div>
+            <div className="admin-card">
+              <div className="admin-card-label">Partner portal</div>
+              <div>{supplier.hasPortalLogin ? "Login enabled" : "No login yet"}</div>
             </div>
           </div>
 
@@ -165,69 +201,56 @@ export default function VendorDetailPage() {
             ) : null}
           </div>
 
-          <h2>Documents</h2>
-          <div className="admin-table-wrap" style={{ marginBottom: 24 }}>
-            <table className="admin-table">
-              <thead>
-                <tr>
-                  <th>Type</th>
-                  <th>File</th>
-                  <th>Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {supplier.documents.length === 0 ? (
-                  <tr>
-                    <td colSpan={3}>No documents</td>
-                  </tr>
-                ) : (
-                  supplier.documents.map((document) => (
-                    <tr key={document.id}>
-                      <td>{document.documentType}</td>
-                      <td>
-                        <a href={document.fileUrl} target="_blank" rel="noreferrer">
-                          {document.fileName}
-                        </a>
-                      </td>
-                      <td>{document.status}</td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
+          <h2>Portal password</h2>
+          <div className="admin-card" style={{ maxWidth: 480, marginBottom: 24 }}>
+            <p style={{ marginTop: 0, color: "#64748b", fontSize: 14 }}>
+              {supplier.hasPortalLogin
+                ? `Set a new password for ${supplier.email}.`
+                : `Create partner portal login for ${supplier.email} and set the password.`}
+            </p>
+            <form
+              onSubmit={(event) => void handleSetPassword(event)}
+              className="form-field"
+              style={{ display: "grid", gap: 12 }}
+            >
+              <label>
+                New password
+                <input
+                  type="password"
+                  autoComplete="new-password"
+                  required
+                  minLength={6}
+                  value={newPassword}
+                  onChange={(event) => setNewPassword(event.target.value)}
+                />
+              </label>
+              <label>
+                Confirm password
+                <input
+                  type="password"
+                  autoComplete="new-password"
+                  required
+                  minLength={6}
+                  value={confirmPassword}
+                  onChange={(event) => setConfirmPassword(event.target.value)}
+                />
+              </label>
+              {passwordError ? <p className="form-error">{passwordError}</p> : null}
+              {passwordSuccess ? (
+                <p style={{ margin: 0, color: "#15803d", fontSize: 14 }}>{passwordSuccess}</p>
+              ) : null}
+              <button className="button-primary" type="submit" disabled={isSavingPassword}>
+                {isSavingPassword
+                  ? "Saving..."
+                  : supplier.hasPortalLogin
+                    ? "Update password"
+                    : "Create login & set password"}
+              </button>
+            </form>
           </div>
 
-          <h2>Bank accounts</h2>
-          <div className="admin-table-wrap">
-            <table className="admin-table">
-              <thead>
-                <tr>
-                  <th>Bank</th>
-                  <th>Holder</th>
-                  <th>IBAN</th>
-                  <th>Currency</th>
-                  <th>Primary</th>
-                </tr>
-              </thead>
-              <tbody>
-                {supplier.bankAccounts.length === 0 ? (
-                  <tr>
-                    <td colSpan={5}>No bank accounts</td>
-                  </tr>
-                ) : (
-                  supplier.bankAccounts.map((account) => (
-                    <tr key={account.id}>
-                      <td>{account.bankName}</td>
-                      <td>{account.accountHolder}</td>
-                      <td>{account.iban}</td>
-                      <td>{account.currency}</td>
-                      <td>{account.isPrimary ? "Yes" : "No"}</td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
+          <h2 style={{ marginBottom: 12 }}>Documents &amp; bank</h2>
+          <VendorSubpanels vendorId={supplier.id} collapsible={false} defaultOpen />
         </>
       ) : null}
 
