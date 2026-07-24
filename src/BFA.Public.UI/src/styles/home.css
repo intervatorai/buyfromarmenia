@@ -2777,6 +2777,108 @@
   color: #166534;
 }
 
+.content-page {
+  max-width: 720px;
+  padding-top: 40px;
+  padding-bottom: 72px;
+}
+
+.content-page-header {
+  margin-bottom: 36px;
+}
+
+.content-page-header h1 {
+  margin: 0 0 14px;
+  font-family: var(--font-playfair), Georgia, serif;
+  font-size: clamp(1.85rem, 3.2vw, 2.5rem);
+  line-height: 1.15;
+  color: var(--navy);
+}
+
+.content-page-lead {
+  margin: 0;
+  max-width: 58ch;
+  color: var(--text-soft);
+  line-height: 1.6;
+  font-size: 1.05rem;
+}
+
+.content-page-updated {
+  margin: 14px 0 0;
+  font-size: 0.875rem;
+  color: var(--text-soft);
+}
+
+.content-page-section {
+  padding: 28px 0 8px;
+  border-top: 1px solid #e8e6e1;
+}
+
+.content-page-section h2 {
+  margin: 0 0 12px;
+  font-size: 1.2rem;
+  color: var(--navy);
+}
+
+.content-page-section p {
+  margin: 0 0 12px;
+  color: var(--text);
+  line-height: 1.65;
+}
+
+.content-page-section ul {
+  margin: 0 0 12px;
+  padding-left: 1.2em;
+  color: var(--text);
+  line-height: 1.65;
+}
+
+.content-page-section li {
+  margin-bottom: 6px;
+}
+
+.content-page-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 20px;
+  margin: 28px 0 0;
+  padding-top: 28px;
+  border-top: 1px solid #e8e6e1;
+}
+
+.content-page-links a {
+  color: var(--navy);
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.content-page-links a:hover {
+  color: var(--text);
+}
+
+.content-page-contact-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.content-page-contact-list li {
+  margin-bottom: 14px;
+  line-height: 1.5;
+}
+
+.content-page-contact-list strong {
+  display: block;
+  margin-bottom: 2px;
+  color: var(--navy);
+}
+
+.content-page-contact-list a {
+  color: var(--navy);
+  font-weight: 600;
+}
+
 .seller-apply {
   max-width: 760px;
 }

@@ -11,7 +11,7 @@ export function Topbar() {
         <span>{translate("topbarDelivery")}</span>
 
         <div className="topbar-links">
-          <a href="#about">{translate("aboutUs")}</a>
+          <a href="/about">{translate("aboutUs")}</a>
           <a href="#help">{translate("help")}</a>
         </div>
       </div>

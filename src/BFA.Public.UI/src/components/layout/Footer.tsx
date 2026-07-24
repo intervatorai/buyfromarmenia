@@ -33,9 +33,9 @@ export function Footer() {
         <div>
           <h3>{translate("forCustomers")}</h3>
           <a href="/#how">{translate("howItWorks")}</a>
-          <a href="#">{translate("howToOrder")}</a>
-          <a href="#">{translate("deliveryPayment")}</a>
-          <a href="#">{translate("returns")}</a>
+          <a href="/how-to-order">{translate("howToOrder")}</a>
+          <a href="/delivery-payment">{translate("deliveryPayment")}</a>
+          <a href="/returns">{translate("returns")}</a>
         </div>
 
         <div>
@@ -46,15 +46,15 @@ export function Footer() {
               {translate("partnerPortal")}
             </a>
           ) : null}
-          <a href="#">{translate("sellerTerms")}</a>
-          <a href="#">{translate("sellerSupport")}</a>
+          <a href="/seller-terms">{translate("sellerTerms")}</a>
+          <a href="/seller-support">{translate("sellerSupport")}</a>
         </div>
 
         <div>
           <h3>{translate("company")}</h3>
-          <a href="#">{translate("aboutUs")}</a>
-          <a href="#">{translate("contacts")}</a>
-          <a href="#">{translate("privacyPolicy")}</a>
+          <a href="/about">{translate("aboutUs")}</a>
+          <a href="/contacts">{translate("contacts")}</a>
+          <a href="/privacy">{translate("privacyPolicy")}</a>
         </div>
 
         <div>
