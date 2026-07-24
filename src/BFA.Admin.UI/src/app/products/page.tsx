@@ -64,7 +64,7 @@ export default function ProductsPage() {
   const router = useRouter();
   const [products, setProducts] = useState<AdminProduct[]>([]);
   const [templates, setTemplates] = useState<string[]>([]);
-  const [filter, setFilter] = useState("PendingReview");
+  const [filter, setFilter] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
   const [actionId, setActionId] = useState<string | null>(null);

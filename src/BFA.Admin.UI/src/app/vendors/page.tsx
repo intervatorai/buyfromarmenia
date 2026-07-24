@@ -32,7 +32,7 @@ type PasswordTarget = {
 export default function VendorsPage() {
   const router = useRouter();
   const [suppliers, setSuppliers] = useState<SupplierListItem[]>([]);
-  const [filter, setFilter] = useState("ApplicationSubmitted");
+  const [filter, setFilter] = useState("");
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [formOpen, setFormOpen] = useState(false);
