@@ -2,8 +2,9 @@
 
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { FormEvent, useCallback, useEffect, useState } from "react";
+import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
 import { AdminShell } from "@/components/layout/AdminShell";
+import { Modal } from "@/components/ui/Modal";
 import { PromptModal } from "@/components/ui/PromptModal";
 import { VendorFormModal } from "@/components/ui/VendorFormModal";
 import { VendorSubpanels } from "@/components/ui/VendorSubpanels";
@@ -30,12 +31,39 @@ export default function VendorDetailPage() {
   const [busy, setBusy] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [promptKind, setPromptKind] = useState<PromptKind>(null);
-
+  const [actionsOpen, setActionsOpen] = useState(false);
+  const [passwordOpen, setPasswordOpen] = useState(false);
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [passwordError, setPasswordError] = useState("");
   const [passwordSuccess, setPasswordSuccess] = useState("");
   const [isSavingPassword, setIsSavingPassword] = useState(false);
+  const menuRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!actionsOpen) {
+      return;
+    }
+
+    function handlePointerDown(event: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setActionsOpen(false);
+      }
+    }
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        setActionsOpen(false);
+      }
+    }
+
+    document.addEventListener("mousedown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [actionsOpen]);
 
   const load = useCallback(async () => {
     setIsLoading(true);
@@ -67,6 +95,14 @@ export default function VendorDetailPage() {
     } finally {
       setBusy(false);
     }
+  }
+
+  function openPasswordModal() {
+    setNewPassword("");
+    setConfirmPassword("");
+    setPasswordError("");
+    setPasswordSuccess("");
+    setPasswordOpen(true);
   }
 
   async function handleSetPassword(event: FormEvent) {
@@ -111,11 +147,125 @@ export default function VendorDetailPage() {
 
   return (
     <AdminShell title={supplier?.tradingName ?? "Vendor"}>
-      <p style={{ marginBottom: 16 }}>
+      <div
+        style={{
+          marginBottom: 16,
+          display: "flex",
+          justifyContent: "space-between",
+          gap: 12,
+          flexWrap: "wrap",
+          alignItems: "center",
+        }}
+      >
         <Link href="/vendors" className="button-ghost">
           ← Back to vendors
         </Link>
-      </p>
+
+        {supplier ? (
+          <div className="row-menu" ref={menuRef}>
+            <button
+              type="button"
+              className="button-primary"
+              aria-haspopup="menu"
+              aria-expanded={actionsOpen}
+              disabled={busy}
+              onClick={() => setActionsOpen((current) => !current)}
+            >
+              Actions ▾
+            </button>
+            {actionsOpen ? (
+              <div className="row-menu-dropdown" role="menu" style={{ right: 0, left: "auto" }}>
+                <button
+                  type="button"
+                  role="menuitem"
+                  className="row-menu-item"
+                  onClick={() => {
+                    setActionsOpen(false);
+                    setEditOpen(true);
+                  }}
+                >
+                  Edit
+                </button>
+                <button
+                  type="button"
+                  role="menuitem"
+                  className="row-menu-item"
+                  onClick={() => {
+                    setActionsOpen(false);
+                    openPasswordModal();
+                  }}
+                >
+                  Change password
+                </button>
+                {(supplier.status === "ApplicationSubmitted"
+                  || supplier.status === "UnderReview") && (
+                  <>
+                    <button
+                      type="button"
+                      role="menuitem"
+                      className="row-menu-item"
+                      onClick={() => {
+                        setActionsOpen(false);
+                        void runAction(`/api/suppliers/${supplier.id}/approve`);
+                      }}
+                    >
+                      Approve
+                    </button>
+                    <button
+                      type="button"
+                      role="menuitem"
+                      className="row-menu-item"
+                      onClick={() => {
+                        setActionsOpen(false);
+                        setPromptKind("request-changes");
+                      }}
+                    >
+                      Request changes
+                    </button>
+                    <button
+                      type="button"
+                      role="menuitem"
+                      className="row-menu-item danger"
+                      onClick={() => {
+                        setActionsOpen(false);
+                        setPromptKind("reject");
+                      }}
+                    >
+                      Reject
+                    </button>
+                  </>
+                )}
+                {supplier.status === "Active" ? (
+                  <button
+                    type="button"
+                    role="menuitem"
+                    className="row-menu-item danger"
+                    onClick={() => {
+                      setActionsOpen(false);
+                      setPromptKind("suspend");
+                    }}
+                  >
+                    Suspend
+                  </button>
+                ) : null}
+                {supplier.status === "Suspended" ? (
+                  <button
+                    type="button"
+                    role="menuitem"
+                    className="row-menu-item"
+                    onClick={() => {
+                      setActionsOpen(false);
+                      void runAction(`/api/suppliers/${supplier.id}/activate`);
+                    }}
+                  >
+                    Activate
+                  </button>
+                ) : null}
+              </div>
+            ) : null}
+          </div>
+        ) : null}
+      </div>
 
       {error ? <p className="form-error">{error}</p> : null}
       {isLoading ? <p>Loading...</p> : null}
@@ -147,108 +297,6 @@ export default function VendorDetailPage() {
             </div>
           </div>
 
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 24 }}>
-            <button type="button" className="button-primary" onClick={() => setEditOpen(true)}>
-              Edit
-            </button>
-            {(supplier.status === "ApplicationSubmitted" || supplier.status === "UnderReview") && (
-              <>
-                <button
-                  type="button"
-                  className="button-primary"
-                  disabled={busy}
-                  onClick={() => void runAction(`/api/suppliers/${supplier.id}/approve`)}
-                >
-                  Approve
-                </button>
-                <button
-                  type="button"
-                  className="button-ghost"
-                  disabled={busy}
-                  onClick={() => setPromptKind("reject")}
-                >
-                  Reject
-                </button>
-                <button
-                  type="button"
-                  className="button-ghost"
-                  disabled={busy}
-                  onClick={() => setPromptKind("request-changes")}
-                >
-                  Request changes
-                </button>
-              </>
-            )}
-            {supplier.status === "Active" ? (
-              <button
-                type="button"
-                className="button-ghost"
-                disabled={busy}
-                onClick={() => setPromptKind("suspend")}
-              >
-                Suspend
-              </button>
-            ) : null}
-            {supplier.status === "Suspended" ? (
-              <button
-                type="button"
-                className="button-primary"
-                disabled={busy}
-                onClick={() => void runAction(`/api/suppliers/${supplier.id}/activate`)}
-              >
-                Activate
-              </button>
-            ) : null}
-          </div>
-
-          <h2>Portal password</h2>
-          <div className="admin-card" style={{ maxWidth: 480, marginBottom: 24 }}>
-            <p style={{ marginTop: 0, color: "#64748b", fontSize: 14 }}>
-              {supplier.hasPortalLogin
-                ? `Set a new password for ${supplier.email}.`
-                : `Create partner portal login for ${supplier.email} and set the password.`}
-            </p>
-            <form
-              onSubmit={(event) => void handleSetPassword(event)}
-              className="form-field"
-              style={{ display: "grid", gap: 12 }}
-            >
-              <label>
-                New password
-                <input
-                  type="password"
-                  autoComplete="new-password"
-                  required
-                  minLength={6}
-                  value={newPassword}
-                  onChange={(event) => setNewPassword(event.target.value)}
-                />
-              </label>
-              <label>
-                Confirm password
-                <input
-                  type="password"
-                  autoComplete="new-password"
-                  required
-                  minLength={6}
-                  value={confirmPassword}
-                  onChange={(event) => setConfirmPassword(event.target.value)}
-                />
-              </label>
-              {passwordError ? <p className="form-error">{passwordError}</p> : null}
-              {passwordSuccess ? (
-                <p style={{ margin: 0, color: "#15803d", fontSize: 14 }}>{passwordSuccess}</p>
-              ) : null}
-              <button className="button-primary" type="submit" disabled={isSavingPassword}>
-                {isSavingPassword
-                  ? "Saving..."
-                  : supplier.hasPortalLogin
-                    ? "Update password"
-                    : "Create login & set password"}
-              </button>
-            </form>
-          </div>
-
           <h2 style={{ marginBottom: 12 }}>Documents &amp; bank</h2>
           <VendorSubpanels vendorId={supplier.id} collapsible={false} defaultOpen />
         </>
@@ -260,6 +308,71 @@ export default function VendorDetailPage() {
         onClose={() => setEditOpen(false)}
         onSaved={() => void load()}
       />
+
+      <Modal
+        open={passwordOpen}
+        title="Change password"
+        onClose={() => setPasswordOpen(false)}
+        footer={
+          <>
+            <button
+              type="button"
+              className="button-ghost"
+              onClick={() => setPasswordOpen(false)}
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              form="vendor-detail-password-form"
+              className="button-primary"
+              disabled={isSavingPassword}
+            >
+              {isSavingPassword ? "Saving…" : "Update password"}
+            </button>
+          </>
+        }
+      >
+        {supplier ? (
+          <form
+            id="vendor-detail-password-form"
+            className="form-field"
+            onSubmit={(event) => void handleSetPassword(event)}
+          >
+            <p style={{ marginTop: 0, color: "var(--admin-muted)", fontSize: 14 }}>
+              {supplier.hasPortalLogin
+                ? `Set a new password for ${supplier.email}.`
+                : `Create partner portal login for ${supplier.email} and set the password.`}
+            </p>
+            <label>
+              New password
+              <input
+                type="password"
+                autoComplete="new-password"
+                required
+                minLength={6}
+                value={newPassword}
+                onChange={(event) => setNewPassword(event.target.value)}
+              />
+            </label>
+            <label>
+              Confirm password
+              <input
+                type="password"
+                autoComplete="new-password"
+                required
+                minLength={6}
+                value={confirmPassword}
+                onChange={(event) => setConfirmPassword(event.target.value)}
+              />
+            </label>
+            {passwordError ? <p className="form-error">{passwordError}</p> : null}
+            {passwordSuccess ? (
+              <p style={{ margin: 0, color: "#15803d", fontSize: 14 }}>{passwordSuccess}</p>
+            ) : null}
+          </form>
+        ) : null}
+      </Modal>
 
       <PromptModal
         open={promptKind !== null}
