@@ -27,7 +27,8 @@ With `output: "standalone"`, **`next start` must not be used** — it serves a b
 2. **Builder**: Dockerfile  
 3. **Dockerfile path**: `docker/public-ui.Dockerfile` (etc.)
 4. **Custom Start Command**: leave **empty** (use image `CMD`: `node server.js`)
-5. Docker Build Args: `NEXT_PUBLIC_API_URL=https://<public-api>.up.railway.app`
+5. Docker Build Args: `NEXT_PUBLIC_API_URL=https://<public-api>.up.railway.app`  
+   (Service Variables alone are not enough for Next.js — the value must be present as a **build-time** Docker ARG. In Railway, open the variable → enable for Build / add under Settings → Build → Docker Build Args, then Redeploy with clear cache.)
 
 ### Option B — Nixpacks (Root Directory = `src/BFA.Public.UI`)
 

@@ -1,6 +1,8 @@
 import { getTokenFromCookie } from "./auth";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:5102";
+const API_URL = (process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:5102")
+  .trim()
+  .replace(/\/$/, "");
 
 export class ApiError extends Error {
   status: number;
@@ -15,6 +17,13 @@ export async function apiFetch<T>(
   path: string,
   options: RequestInit = {},
 ): Promise<T> {
+  if (!API_URL || !/^https?:\/\//i.test(API_URL)) {
+    throw new ApiError(
+      "NEXT_PUBLIC_API_URL is not configured. Set it to the Supplier API URL at build time.",
+      0,
+    );
+  }
+
   const token = getTokenFromCookie();
   const headers = new Headers(options.headers);
 
