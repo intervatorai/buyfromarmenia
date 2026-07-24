@@ -56,6 +56,30 @@ public class AuthController : ControllerBase
 
         return Ok(result);
     }
+
+    [HttpPost("change-password")]
+    [Authorize]
+    public async Task<IActionResult> ChangePassword(
+        [FromBody] ChangePasswordRequest request,
+        CancellationToken cancellationToken)
+    {
+        var adminIdValue = User.FindFirstValue(ClaimTypes.NameIdentifier);
+
+        if (!Guid.TryParse(adminIdValue, out var adminId))
+        {
+            return Unauthorized();
+        }
+
+        var result = await _mediator.Send(
+            new ChangeAdminPasswordCommand(adminId, request.CurrentPassword, request.NewPassword),
+            cancellationToken);
+
+        return result.Success
+            ? Ok(new { message = "Password updated." })
+            : BadRequest(new { message = result.Error });
+    }
 }
 
 public record LoginRequest(string Email, string Password);
+
+public record ChangePasswordRequest(string CurrentPassword, string NewPassword);

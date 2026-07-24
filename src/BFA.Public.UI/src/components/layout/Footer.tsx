@@ -4,6 +4,10 @@ import { FormEvent } from "react";
 import { useLanguage } from "@/components/providers/LanguageProvider";
 import { BrandLogo } from "./BrandLogo";
 
+const SUPPLIER_PORTAL_URL = (
+  process.env.NEXT_PUBLIC_SUPPLIER_URL ?? ""
+).replace(/\/$/, "");
+
 export function Footer() {
   const { translate } = useLanguage();
 
@@ -37,6 +41,11 @@ export function Footer() {
         <div>
           <h3>{translate("forSellers")}</h3>
           <a href="/sell">{translate("sellOnPlatform")}</a>
+          {SUPPLIER_PORTAL_URL ? (
+            <a href={SUPPLIER_PORTAL_URL} target="_blank" rel="noopener noreferrer">
+              {translate("partnerPortal")}
+            </a>
+          ) : null}
           <a href="#">{translate("sellerTerms")}</a>
           <a href="#">{translate("sellerSupport")}</a>
         </div>

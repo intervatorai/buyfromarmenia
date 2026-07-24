@@ -1,6 +1,7 @@
 using BFA.Public.Application.Commands.Products;
 using BFA.Public.Application.Queries.Products;
 using MediatR;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace BFA.Public.Api.Controllers;
@@ -17,6 +18,7 @@ public class ProductsController : ControllerBase
     }
 
     [HttpGet]
+    [AllowAnonymous]
     public async Task<IActionResult> GetProducts(
         [FromQuery] Guid? categoryId,
         [FromQuery] string? category,
@@ -34,6 +36,7 @@ public class ProductsController : ControllerBase
     }
 
     [HttpGet("{slugOrId}")]
+    [AllowAnonymous]
     public async Task<IActionResult> GetProduct(
         string slugOrId,
         [FromQuery] string? lang = null,

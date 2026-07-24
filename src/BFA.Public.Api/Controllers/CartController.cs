@@ -1,12 +1,14 @@
 using BFA.Public.Application.Commands.Shopping;
 using BFA.Public.Application.Queries.Shopping;
 using MediatR;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace BFA.Public.Api.Controllers;
 
 [ApiController]
 [Route("api/carts/{cartId:guid}")]
+[AllowAnonymous]
 public sealed class CartController : ControllerBase
 {
     private readonly IMediator _mediator;

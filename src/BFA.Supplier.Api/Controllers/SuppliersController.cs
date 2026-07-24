@@ -1,6 +1,7 @@
 using BFA.Supplier.Application.Commands.Suppliers;
 using BFA.Supplier.Application.Queries.Suppliers;
 using MediatR;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace BFA.Supplier.Api.Controllers;
@@ -17,6 +18,7 @@ public class SuppliersController : ControllerBase
     }
 
     [HttpPost]
+    [AllowAnonymous]
     public async Task<IActionResult> Register(
         [FromBody] RegisterSupplierRequest request,
         CancellationToken cancellationToken)

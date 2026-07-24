@@ -1,11 +1,13 @@
 using BFA.Public.Application.Queries.Categories;
 using MediatR;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace BFA.Public.Api.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
+[AllowAnonymous]
 public class CategoriesController : ControllerBase
 {
     private readonly IMediator _mediator;

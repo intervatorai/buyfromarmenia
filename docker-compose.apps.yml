@@ -76,6 +76,7 @@ services:
       args:
         NEXT_PUBLIC_API_URL: http://localhost:5100
         NEXT_PUBLIC_SUPPLIER_API_URL: http://localhost:5102
+        NEXT_PUBLIC_SUPPLIER_URL: http://localhost:3202
     ports:
       - "3200:3000"
     environment:

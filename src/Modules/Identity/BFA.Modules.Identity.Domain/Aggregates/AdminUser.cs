@@ -75,4 +75,14 @@ public sealed class AdminUser : AggregateRoot
         FullName = fullName.Trim();
         Role = role;
     }
+
+    public void SetPasswordHash(string passwordHash)
+    {
+        if (string.IsNullOrWhiteSpace(passwordHash))
+        {
+            throw new DomainException("Password hash is required.");
+        }
+
+        PasswordHash = passwordHash;
+    }
 }

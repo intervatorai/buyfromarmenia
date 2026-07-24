@@ -74,12 +74,6 @@ export default function LoginPage() {
             {isSubmitting ? "Signing in..." : "Sign in"}
           </button>
         </form>
-
-        <div className="login-hint">
-          Development credentials:
-          <br />
-          admin / admin
-        </div>
       </div>
     </div>
   );

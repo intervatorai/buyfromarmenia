@@ -21,6 +21,7 @@ const navItems = [
   { href: "/settings/shipping-countries", label: "Shipping countries" },
   { href: "/settings/shipping-rates", label: "Shipping rates" },
   { href: "/settings/users", label: "Admin users" },
+  { href: "/settings/account", label: "My account" },
 ];
 
 export function AdminShell({

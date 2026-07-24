@@ -9,8 +9,18 @@ import { RequireAuth } from "@/components/providers/RequireAuth";
 
 type AccountLink = {
   href: string;
-  titleKey: "myOrders" | "shippingAddresses" | "wishlist" | "cart";
-  descKey: "accountOrdersDesc" | "accountAddressesDesc" | "accountWishlistDesc" | "accountCartDesc";
+  titleKey:
+    | "myOrders"
+    | "shippingAddresses"
+    | "wishlist"
+    | "cart"
+    | "changePassword";
+  descKey:
+    | "accountOrdersDesc"
+    | "accountAddressesDesc"
+    | "accountWishlistDesc"
+    | "accountCartDesc"
+    | "accountPasswordDesc";
   icon: ReactNode;
 };
 
@@ -94,6 +104,32 @@ const links: AccountLink[] = [
         />
         <circle cx="10" cy="19" r="1.3" fill="currentColor" />
         <circle cx="17" cy="19" r="1.3" fill="currentColor" />
+      </svg>
+    ),
+  },
+  {
+    href: "/account/password",
+    titleKey: "changePassword",
+    descKey: "accountPasswordDesc",
+    icon: (
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <rect
+          x="5"
+          y="11"
+          width="14"
+          height="9"
+          rx="2"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.7"
+        />
+        <path
+          d="M8 11V8a4 4 0 0 1 8 0v3"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.7"
+          strokeLinecap="round"
+        />
       </svg>
     ),
   },

@@ -1,11 +1,13 @@
 using BFA.Public.Application.Queries.ShippingCountries;
 using MediatR;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace BFA.Public.Api.Controllers;
 
 [ApiController]
 [Route("api/shipping-countries")]
+[AllowAnonymous]
 public sealed class ShippingCountriesController : ControllerBase
 {
     private readonly IMediator _mediator;

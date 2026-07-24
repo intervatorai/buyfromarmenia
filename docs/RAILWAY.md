@@ -102,6 +102,7 @@ PublicJwt__ExpirationHours=2
 |---------|-----------|--------|
 | `public-ui` | `NEXT_PUBLIC_API_URL` | `https://<public-api>.up.railway.app` |
 | `public-ui` | `NEXT_PUBLIC_SUPPLIER_API_URL` | `https://<supplier-api>.up.railway.app` (optional) |
+| `public-ui` | `NEXT_PUBLIC_SUPPLIER_URL` | `https://<supplier-ui>.up.railway.app` (partner portal footer link) |
 | `public-ui` | `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY` | maps key (optional) |
 | `admin-ui` | `NEXT_PUBLIC_API_URL` | `https://<admin-api>.up.railway.app` |
 | `admin-ui` | `NEXT_PUBLIC_PUBLIC_SITE_URL` | `https://<public-ui>.up.railway.app` |

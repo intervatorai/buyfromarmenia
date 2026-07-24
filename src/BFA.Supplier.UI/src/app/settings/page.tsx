@@ -107,6 +107,12 @@ export default function SettingsPage() {
   const [savedMessage, setSavedMessage] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [passwordError, setPasswordError] = useState("");
+  const [passwordSuccess, setPasswordSuccess] = useState("");
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
 
   useEffect(() => {
     async function loadSettings() {
@@ -181,9 +187,44 @@ export default function SettingsPage() {
     setForm((current) => ({ ...current, [key]: value }));
   }
 
+  async function handleChangePassword(event: FormEvent) {
+    event.preventDefault();
+    setPasswordError("");
+    setPasswordSuccess("");
+
+    if (newPassword.length < 6) {
+      setPasswordError("New password must be at least 6 characters.");
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      setPasswordError("New password and confirmation do not match.");
+      return;
+    }
+
+    setIsChangingPassword(true);
+    try {
+      await apiFetch("/api/auth/change-password", {
+        method: "POST",
+        body: JSON.stringify({ currentPassword, newPassword }),
+      });
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
+      setPasswordSuccess("Password updated.");
+    } catch (err) {
+      setPasswordError(
+        err instanceof ApiError ? err.message : "Failed to change password.",
+      );
+    } finally {
+      setIsChangingPassword(false);
+    }
+  }
+
   return (
     <SupplierShell title="Store settings">
-      <div className="supplier-card" style={{ maxWidth: 760 }}>
+      <div style={{ display: "grid", gap: 20, maxWidth: 760 }}>
+      <div className="supplier-card">
         {error ? <p className="form-error">{error}</p> : null}
         {isLoading ? <p>Loading settings...</p> : null}
 
@@ -363,6 +404,60 @@ export default function SettingsPage() {
             </div>
           </form>
         ) : null}
+      </div>
+
+      <div className="supplier-card">
+        <h2 style={{ fontSize: 16, margin: "0 0 12px" }}>Change password</h2>
+        <form
+          onSubmit={(event) => void handleChangePassword(event)}
+          style={{ display: "grid", gap: 12, maxWidth: 420 }}
+        >
+          <label>
+            Current password
+            <input
+              type="password"
+              autoComplete="current-password"
+              required
+              value={currentPassword}
+              onChange={(event) => setCurrentPassword(event.target.value)}
+            />
+          </label>
+          <label>
+            New password
+            <input
+              type="password"
+              autoComplete="new-password"
+              required
+              minLength={6}
+              value={newPassword}
+              onChange={(event) => setNewPassword(event.target.value)}
+            />
+          </label>
+          <label>
+            Confirm new password
+            <input
+              type="password"
+              autoComplete="new-password"
+              required
+              minLength={6}
+              value={confirmPassword}
+              onChange={(event) => setConfirmPassword(event.target.value)}
+            />
+          </label>
+          {passwordError ? <p className="form-error">{passwordError}</p> : null}
+          {passwordSuccess ? (
+            <p style={{ margin: 0, fontSize: 13, color: "#16a34a" }}>{passwordSuccess}</p>
+          ) : null}
+          <button
+            className="button-primary"
+            type="submit"
+            disabled={isChangingPassword}
+            style={{ padding: "10px 24px", justifySelf: "start" }}
+          >
+            {isChangingPassword ? "Saving..." : "Update password"}
+          </button>
+        </form>
+      </div>
       </div>
     </SupplierShell>
   );

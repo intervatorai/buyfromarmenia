@@ -46,6 +46,29 @@ public sealed class AuthController : ControllerBase
         var result = await _mediator.Send(new GetCurrentSupplierQuery(userId), cancellationToken);
         return result is null ? Unauthorized() : Ok(result);
     }
+
+    [HttpPost("change-password")]
+    [Authorize]
+    public async Task<IActionResult> ChangePassword(
+        [FromBody] ChangePasswordRequest request,
+        CancellationToken cancellationToken)
+    {
+        var userIdValue = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (!Guid.TryParse(userIdValue, out var userId))
+        {
+            return Unauthorized();
+        }
+
+        var result = await _mediator.Send(
+            new ChangeSupplierPasswordCommand(userId, request.CurrentPassword, request.NewPassword),
+            cancellationToken);
+
+        return result.Success
+            ? Ok(new { message = "Password updated." })
+            : BadRequest(new { message = result.Error });
+    }
 }
 
 public record LoginSupplierRequest(string Email, string Password);
+
+public record ChangePasswordRequest(string CurrentPassword, string NewPassword);
